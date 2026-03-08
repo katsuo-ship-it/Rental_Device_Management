@@ -1,0 +1,17 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+
+    "SQL_SERVER": "your-server.database.windows.net",
+    "SQL_DATABASE": "your-database-name",
+    "SQL_USER": "your-sql-user",
+    "SQL_PASSWORD": "your-sql-password",
+
+    "ENTRA_TENANT_ID": "your-tenant-id",
+    "ENTRA_CLIENT_ID": "your-client-id",
+
+    "DATAVERSE_URL": "https://org5a73169f.crm7.dynamics.com"
+  }
+}

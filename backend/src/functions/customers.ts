@@ -43,8 +43,7 @@ async function searchCustomers(req: HttpRequest, _ctx: InvocationContext): Promi
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    return { status: response.status, jsonBody: { error: 'Dataverse エラー', detail: text } };
+    return { status: response.status, jsonBody: { error: 'Dataverse への接続に失敗しました' } };
   }
 
   const data = await response.json() as { value: unknown[] };

@@ -14,6 +14,10 @@ async function monthlyReport(req: HttpRequest, _ctx: InvocationContext): Promise
   const year = parseInt(req.query.get('year') || String(new Date().getFullYear()));
   const month = parseInt(req.query.get('month') || String(new Date().getMonth() + 1));
 
+  if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+    return { status: 400, jsonBody: { error: 'year・monthは正しい整数で指定してください' } };
+  }
+
   const pool = await getPool();
 
   // アクティブなレンタル（月に1日以上重複している契約）
@@ -101,6 +105,10 @@ async function exportMonthlyReport(req: HttpRequest, _ctx: InvocationContext): P
 
   const year = parseInt(req.query.get('year') || String(new Date().getFullYear()));
   const month = parseInt(req.query.get('month') || String(new Date().getMonth() + 1));
+
+  if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+    return { status: 400, jsonBody: { error: 'year・monthは正しい整数で指定してください' } };
+  }
 
   const pool = await getPool();
 

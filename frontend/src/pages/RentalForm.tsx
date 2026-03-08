@@ -70,7 +70,7 @@ export default function RentalForm() {
           delivery_address: form.delivery_address,
           delivery_phone: form.delivery_phone,
           contract_start_date: form.contract_start_date,
-          billing_start_date: form.billing_start_date,
+          billing_start_date: form.billing_start_date || null,
           contract_end_date: form.contract_end_date,
           contract_months: parseInt(form.contract_months),
           auto_renewal: form.auto_renewal,
