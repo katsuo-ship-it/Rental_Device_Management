@@ -1,0 +1,136 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "logicAppName": { "type": "string", "defaultValue": "la-rental-alert" },
+    "teamsWebhookUrl": { "type": "securestring" },
+    "apiBaseUrl": { "type": "string" },
+    "apiKey": { "type": "securestring" }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Logic/workflows",
+      "apiVersion": "2019-05-01",
+      "name": "[parameters('logicAppName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "state": "Enabled",
+        "definition": {
+          "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+          "contentVersion": "1.0.0.0",
+          "triggers": {
+            "毎日9時に実行": {
+              "type": "Recurrence",
+              "recurrence": {
+                "frequency": "Day",
+                "interval": 1,
+                "schedule": { "hours": ["9"], "minutes": [0] },
+                "timeZone": "Tokyo Standard Time"
+              }
+            }
+          },
+          "actions": {
+            "アラート取得": {
+              "type": "Http",
+              "inputs": {
+                "method": "GET",
+                "uri": "[concat(parameters('apiBaseUrl'), '/api/alerts/internal')]",
+                "headers": { "x-functions-key": "@parameters('apiKey')" }
+              }
+            },
+            "アラート解析": {
+              "type": "ParseJson",
+              "inputs": {
+                "content": "@body('アラート取得')",
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "integer" },
+                      "customer_name": { "type": "string" },
+                      "model_name": { "type": "string" },
+                      "color": { "type": "string" },
+                      "management_no": { "type": "string" },
+                      "contract_end_date": { "type": "string" },
+                      "days_until_end": { "type": "integer" }
+                    }
+                  }
+                }
+              },
+              "runAfter": { "アラート取得": ["Succeeded"] }
+            },
+            "対象フィルター": {
+              "type": "Query",
+              "inputs": {
+                "from": "@body('アラート解析')",
+                "where": "@or(equals(item()['days_until_end'], 60), equals(item()['days_until_end'], 30), equals(item()['days_until_end'], 7))"
+              },
+              "runAfter": { "アラート解析": ["Succeeded"] }
+            },
+            "FactSet形式に変換": {
+              "type": "Select",
+              "inputs": {
+                "from": "@body('対象フィルター')",
+                "select": {
+                  "title": "@{item()['customer_name']} / @{item()['model_name']} @{item()['color']}",
+                  "value": "@{concat('終了日: ', formatDateTime(item()['contract_end_date'], 'yyyy/MM/dd'), '（残', string(item()['days_until_end']), '日）管理番号: ', item()['management_no'])}"
+                }
+              },
+              "runAfter": { "対象フィルター": ["Succeeded"] }
+            },
+            "通知が必要か確認": {
+              "type": "If",
+              "expression": {
+                "and": [{ "greater": ["@length(body('対象フィルター'))", 0] }]
+              },
+              "actions": {
+                "Teamsメッセージ送信": {
+                  "type": "Http",
+                  "inputs": {
+                    "method": "POST",
+                    "uri": "[parameters('teamsWebhookUrl')]",
+                    "headers": { "Content-Type": "application/json" },
+                    "body": {
+                      "type": "message",
+                      "attachments": [
+                        {
+                          "contentType": "application/vnd.microsoft.card.adaptive",
+                          "content": {
+                            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                            "type": "AdaptiveCard",
+                            "version": "1.4",
+                            "body": [
+                              {
+                                "type": "TextBlock",
+                                "text": "レンタル契約期限アラート",
+                                "weight": "Bolder",
+                                "size": "Large",
+                                "color": "Warning"
+                              },
+                              {
+                                "type": "TextBlock",
+                                "text": "@{concat('本日 ', formatDateTime(utcNow(), 'yyyy/MM/dd'), ' 時点で ', length(body('対象フィルター')), ' 件の契約が期限を迎えます')}",
+                                "wrap": true
+                              },
+                              {
+                                "type": "FactSet",
+                                "facts": "@body('FactSet形式に変換')"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              "else": { "actions": {} },
+              "runAfter": { "FactSet形式に変換": ["Succeeded"] }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

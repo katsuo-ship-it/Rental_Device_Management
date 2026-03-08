@@ -1,0 +1,33 @@
+# 依存パッケージ
+node_modules/
+
+# ビルド成果物
+dist/
+build/
+.next/
+out/
+
+# 環境変数（機密情報）
+.env
+.env.local
+.env.*.local
+
+# Azure Functions ローカル設定（接続文字列等を含む）
+backend/local.settings.json
+
+# Excelファイル（顧客・販売データ）
+*.xlsx
+*.xls
+*.csv
+
+# OS / エディタ
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+
+# TypeScript
+*.tsbuildinfo
+
+# ログ
+*.log
+npm-debug.log*
