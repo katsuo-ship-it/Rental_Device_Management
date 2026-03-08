@@ -185,17 +185,13 @@ export default function Contracts() {
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">{c.management_no || '-'}</td>
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{fmtDate(c.contract_start_date)}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      {c.status === 'active' && c.days_until_end != null && c.days_until_end < 0 ? (
-                        <span className="text-xs text-red-600 font-semibold">要確認</span>
-                      ) : (
-                        <span className={
-                          c.days_until_end != null && c.days_until_end <= 30 && c.status === 'active'
-                            ? 'font-semibold text-orange-700'
-                            : 'text-gray-600'
-                        }>
-                          {fmtDate(c.contract_end_date)}
-                        </span>
-                      )}
+                      <span className={
+                        c.days_until_end != null && c.days_until_end <= 30 && c.status === 'active'
+                          ? 'font-semibold text-orange-700'
+                          : 'text-gray-600'
+                      }>
+                        {fmtDate(c.contract_end_date)}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       {c.status === 'active' && c.days_until_end != null
