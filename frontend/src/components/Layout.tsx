@@ -24,9 +24,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen bg-gray-50">
       {/* サイドバー */}
       <aside
-        className={`${sidebarOpen ? 'w-56' : 'w-16'} bg-green-900 text-white flex flex-col transition-all duration-200`}
+        className={`${sidebarOpen ? 'w-56' : 'w-14'} bg-slate-900 text-white flex flex-col transition-all duration-200`}
       >
-        <div className="flex items-center justify-between px-4 py-4 border-b border-green-700">
+        <div className="flex items-center justify-between px-4 py-4 border-b border-slate-700">
           {sidebarOpen && (
             <span className="text-sm font-bold leading-tight">携帯レンタル<br />管理システム</span>
           )}
@@ -49,7 +49,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 className={`flex items-center gap-3 px-4 py-3 text-sm transition-colors
                   ${active
                     ? 'bg-blue-600 text-white'
-                    : 'text-gray-300 hover:bg-green-800 hover:text-white'
+                    : 'text-gray-300 hover:bg-slate-800 hover:text-white'
                   }`}
               >
                 <span className="text-lg">{item.icon}</span>
@@ -60,19 +60,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* 外部リンク */}
-        <div className="border-t border-green-700 py-3">
+        <div className="border-t border-slate-700 py-3">
           <a
             href="https://license-mgmt-focus.azurewebsites.net/dashboard"
             target="contract-mgmt-system"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-green-800 hover:text-yellow-400 transition-colors"
+            className="flex items-center gap-3 px-4 py-2 text-sm text-gray-300 hover:bg-slate-800 hover:text-yellow-300 transition-colors"
           >
             <span className="text-lg">🔑</span>
             {sidebarOpen && <span className="leading-tight">契約管理<br />システム</span>}
           </a>
         </div>
 
-        <div className="border-t border-green-700 p-4">
+        <div className="border-t border-slate-700 p-4">
           {sidebarOpen && (
             <p className="text-xs text-gray-400 mb-2 truncate">
               {user?.name || user?.username}
