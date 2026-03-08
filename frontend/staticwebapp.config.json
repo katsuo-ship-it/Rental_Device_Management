@@ -11,6 +11,6 @@
   ],
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/api/*", "*.{css,js,png,jpg,ico}"]
+    "exclude": ["/api/*", "/assets/*", "/*.{css,js,png,jpg,ico,svg,woff,woff2,map}"]
   }
 }
