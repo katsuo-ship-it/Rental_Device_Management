@@ -17,11 +17,11 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 function DaysBadge({ days }: { days: number }) {
-  if (days < 0)   return <span className="px-2 py-0.5 text-xs bg-red-600 text-white rounded-full font-bold">要確認</span>;
-  if (days <= 7)  return <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full font-bold">残{days}日</span>;
-  if (days <= 30) return <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full font-bold">残{days}日</span>;
-  if (days <= 60) return <span className="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded-full">残{days}日</span>;
-  return <span className="text-xs text-gray-500">残{days}日</span>;
+  if (days < 0)   return <span className="px-2 py-0.5 text-xs bg-red-600 text-white rounded-full font-bold whitespace-nowrap">要確認</span>;
+  if (days <= 7)  return <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full font-bold whitespace-nowrap">残{days}日</span>;
+  if (days <= 30) return <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full font-bold whitespace-nowrap">残{days}日</span>;
+  if (days <= 60) return <span className="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded-full whitespace-nowrap">残{days}日</span>;
+  return <span className="text-xs text-gray-500 whitespace-nowrap">残{days}日</span>;
 }
 
 export default function Contracts() {
@@ -174,7 +174,7 @@ export default function Contracts() {
                 ) : filtered.map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${STATUS_COLORS[c.status]}`}>
+                      <span className={`px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${STATUS_COLORS[c.status]}`}>
                         {STATUS_LABELS[c.status]}
                       </span>
                     </td>
