@@ -60,12 +60,47 @@ export default function DeviceDetail() {
   const [device, setDevice] = useState<DeviceWithHistory | null>(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  // 修理記録フォーム（在庫端末用）
+  const [showRepairForm, setShowRepairForm] = useState(false);
+  const [repairDate, setRepairDate] = useState('');
+  const [repairCost, setRepairCost] = useState('');
+  const [repairDesc, setRepairDesc] = useState('');
+  const [repairSubmitting, setRepairSubmitting] = useState(false);
+  const [repairError, setRepairError] = useState('');
+
+  const loadDevice = () => {
     if (!id) return;
     apiFetch<DeviceWithHistory>(`/devices/${id}`)
       .then(setDevice)
       .catch(() => setError('端末情報の取得に失敗しました'));
-  }, [id]);
+  };
+
+  useEffect(() => { loadDevice(); }, [id]);
+
+  const handleRepairSubmit = async () => {
+    if (!repairDate || !repairCost) { setRepairError('修理日と修理費は必須です'); return; }
+    setRepairSubmitting(true);
+    setRepairError('');
+    try {
+      await apiFetch(`/devices/${id}/repairs`, {
+        method: 'POST',
+        body: JSON.stringify({
+          repair_date: repairDate,
+          repair_cost: parseFloat(repairCost),
+          description: repairDesc || null,
+        }),
+      });
+      setShowRepairForm(false);
+      setRepairDate('');
+      setRepairCost('');
+      setRepairDesc('');
+      loadDevice();
+    } catch (e) {
+      setRepairError((e as Error).message);
+    } finally {
+      setRepairSubmitting(false);
+    }
+  };
 
   const fmt = (n?: number) => n != null ? `¥${n.toLocaleString('ja-JP')}` : '-';
   const fmtDate = (d?: string) => d ? d.split('T')[0] : '-';
@@ -191,7 +226,72 @@ export default function DeviceDetail() {
 
       {/* 修理履歴 */}
       <div className={section}>
-        <h2 className="text-base font-semibold text-gray-700">修理履歴</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold text-gray-700">修理履歴</h2>
+          {device.status === 'in_stock' && !showRepairForm && (
+            <button
+              onClick={() => setShowRepairForm(true)}
+              className="px-3 py-1.5 text-xs bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+            >
+              + 修理記録を追加
+            </button>
+          )}
+        </div>
+
+        {/* 修理記録追加フォーム */}
+        {showRepairForm && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-orange-800">修理記録を追加</h3>
+            {repairError && <p className="text-sm text-red-600">{repairError}</p>}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">修理日 *</label>
+                <input
+                  type="date"
+                  className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full"
+                  value={repairDate}
+                  onChange={(e) => setRepairDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">修理費（税抜）*</label>
+                <input
+                  type="number"
+                  className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full"
+                  value={repairCost}
+                  onChange={(e) => setRepairCost(e.target.value)}
+                  min="0"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">修理内容</label>
+              <input
+                type="text"
+                className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full"
+                value={repairDesc}
+                onChange={(e) => setRepairDesc(e.target.value)}
+                placeholder="画面交換、バッテリー交換など"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setShowRepairForm(false); setRepairError(''); }}
+                className="px-3 py-1.5 text-sm border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleRepairSubmit}
+                disabled={repairSubmitting}
+                className="px-3 py-1.5 text-sm bg-orange-500 text-white rounded hover:bg-orange-600 disabled:opacity-40"
+              >
+                {repairSubmitting ? '保存中...' : '保存する'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {device.repairs.length === 0 ? (
           <p className="text-sm text-gray-500">修理履歴はありません</p>
         ) : (

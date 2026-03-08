@@ -129,6 +129,23 @@ CREATE INDEX IX_rental_contracts_end_date ON rental_contracts(contract_end_date)
 CREATE INDEX IX_rental_contracts_status ON rental_contracts(status);
 CREATE INDEX IX_rental_contracts_customer ON rental_contracts(customer_dataverse_id);
 
+-- ============================================
+-- Migration: 監査ログテーブル（初回構築後に追加実行）
+-- ============================================
+CREATE TABLE audit_logs (
+    id          INT IDENTITY(1,1) PRIMARY KEY,
+    table_name  NVARCHAR(50)    NOT NULL,              -- 操作対象テーブル
+    record_id   INT             NOT NULL,               -- 操作対象レコードID
+    action      NVARCHAR(20)    NOT NULL,               -- 'CREATE'|'CANCEL'|'RETURN'|'RENEW'|'SELL'|'REPAIR'
+    user_oid    NVARCHAR(100),                          -- Entra ID ユーザー OID
+    user_name   NVARCHAR(200),                          -- ユーザー表示名
+    user_email  NVARCHAR(200),                          -- ユーザーメールアドレス
+    details     NVARCHAR(MAX),                          -- 詳細情報（JSON）
+    created_at  DATETIME2       DEFAULT GETDATE()
+);
+CREATE INDEX IX_audit_logs_table_record ON audit_logs(table_name, record_id);
+CREATE INDEX IX_audit_logs_created_at ON audit_logs(created_at);
+
 -- 更新日時自動更新トリガー
 CREATE TRIGGER TR_devices_updated_at ON devices
 AFTER UPDATE AS

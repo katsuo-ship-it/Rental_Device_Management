@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getPool, sql } from '../shared/db';
 import { verifyToken, unauthorizedResponse } from '../shared/auth';
+import { logAudit } from '../shared/audit';
 
 // GET /api/contracts
 async function listContracts(req: HttpRequest, _ctx: InvocationContext): Promise<HttpResponseInit> {
@@ -58,13 +59,19 @@ async function getContract(req: HttpRequest, _ctx: InvocationContext): Promise<H
     return { status: 404, jsonBody: { error: '契約が見つかりません' } };
   }
 
-  return { status: 200, jsonBody: result.recordset[0] };
+  // 修理履歴（この契約に紐づく分）
+  const repairs = await pool.request()
+    .input('contract_id', sql.Int, id)
+    .query(`SELECT * FROM repairs WHERE contract_id = @contract_id ORDER BY repair_date DESC`);
+
+  return { status: 200, jsonBody: { ...result.recordset[0], repairs: repairs.recordset } };
 }
 
 // POST /api/contracts
 async function createContract(req: HttpRequest, _ctx: InvocationContext): Promise<HttpResponseInit> {
+  let user;
   try {
-    await verifyToken(req);
+    user = await verifyToken(req);
   } catch {
     return unauthorizedResponse();
   }
@@ -157,7 +164,12 @@ async function createContract(req: HttpRequest, _ctx: InvocationContext): Promis
       .query(`UPDATE devices SET status = 'renting' WHERE id = @device_id`);
 
     await transaction.commit();
-    return { status: 201, jsonBody: { id: result.recordset[0].id, message: 'レンタル契約を登録しました' } };
+    const newId = result.recordset[0].id;
+    await logAudit(user, 'rental_contracts', newId, 'CREATE', {
+      device_id: body.device_id,
+      customer_name: body.customer_name,
+    });
+    return { status: 201, jsonBody: { id: newId, message: 'レンタル契約を登録しました' } };
   } catch (err) {
     await transaction.rollback();
     throw err;
@@ -166,8 +178,9 @@ async function createContract(req: HttpRequest, _ctx: InvocationContext): Promis
 
 // POST /api/contracts/:id/return
 async function returnContract(req: HttpRequest, _ctx: InvocationContext): Promise<HttpResponseInit> {
+  let user;
   try {
-    await verifyToken(req);
+    user = await verifyToken(req);
   } catch {
     return unauthorizedResponse();
   }
@@ -232,11 +245,120 @@ async function returnContract(req: HttpRequest, _ctx: InvocationContext): Promis
       .query(`UPDATE devices SET status = 'in_stock' WHERE id = @device_id`);
 
     await transaction.commit();
+    await logAudit(user, 'rental_contracts', parseInt(id), 'RETURN', {
+      return_date: body.return_date,
+      condition_ok: body.condition_ok,
+      repair_cost: body.repair_cost,
+    });
     return { status: 200, jsonBody: { message: '返却処理が完了しました' } };
   } catch (err) {
     await transaction.rollback();
     throw err;
   }
+}
+
+// POST /api/contracts/:id/cancel
+async function cancelContract(req: HttpRequest, _ctx: InvocationContext): Promise<HttpResponseInit> {
+  let user;
+  try {
+    user = await verifyToken(req);
+  } catch {
+    return unauthorizedResponse();
+  }
+
+  const id = parseInt(req.params.id);
+  const body = await req.json() as Record<string, unknown>;
+  const pool = await getPool();
+  const transaction = new sql.Transaction(pool);
+
+  try {
+    await transaction.begin();
+
+    const contractResult = await new sql.Request(transaction)
+      .input('id', sql.Int, id)
+      .query(`SELECT device_id, status FROM rental_contracts WHERE id = @id`);
+
+    if (contractResult.recordset.length === 0) {
+      await transaction.rollback();
+      return { status: 404, jsonBody: { error: '契約が見つかりません' } };
+    }
+    if (contractResult.recordset[0].status !== 'active') {
+      await transaction.rollback();
+      return { status: 400, jsonBody: { error: 'アクティブな契約のみキャンセルできます' } };
+    }
+
+    const deviceId = contractResult.recordset[0].device_id;
+
+    await new sql.Request(transaction)
+      .input('id', sql.Int, id)
+      .query(`UPDATE rental_contracts SET status = 'cancelled' WHERE id = @id`);
+
+    await new sql.Request(transaction)
+      .input('device_id', sql.Int, deviceId)
+      .query(`UPDATE devices SET status = 'in_stock' WHERE id = @device_id`);
+
+    await transaction.commit();
+    await logAudit(user, 'rental_contracts', id, 'CANCEL', {
+      cancel_reason: body.cancel_reason,
+    });
+    return { status: 200, jsonBody: { message: '契約をキャンセルしました' } };
+  } catch (err) {
+    await transaction.rollback();
+    throw err;
+  }
+}
+
+// POST /api/contracts/:id/renew
+async function renewContract(req: HttpRequest, _ctx: InvocationContext): Promise<HttpResponseInit> {
+  let user;
+  try {
+    user = await verifyToken(req);
+  } catch {
+    return unauthorizedResponse();
+  }
+
+  const id = parseInt(req.params.id);
+  const body = await req.json() as Record<string, unknown>;
+  const pool = await getPool();
+
+  const contractResult = await pool.request()
+    .input('id', sql.Int, id)
+    .query(`SELECT status, contract_end_date FROM rental_contracts WHERE id = @id`);
+
+  if (contractResult.recordset.length === 0) {
+    return { status: 404, jsonBody: { error: '契約が見つかりません' } };
+  }
+  if (contractResult.recordset[0].status !== 'active') {
+    return { status: 400, jsonBody: { error: 'アクティブな契約のみ更新できます' } };
+  }
+
+  const newEndDate = new Date(body.new_end_date as string);
+  const currentEndDate = new Date(contractResult.recordset[0].contract_end_date);
+  if (isNaN(newEndDate.getTime())) {
+    return { status: 400, jsonBody: { error: '日付の形式が正しくありません' } };
+  }
+  if (newEndDate <= currentEndDate) {
+    return { status: 400, jsonBody: { error: '新しい契約終了日は現在の終了日より後の日付を指定してください' } };
+  }
+
+  const additionalMonths = parseInt(body.additional_months as string) || 0;
+
+  await pool.request()
+    .input('id', sql.Int, id)
+    .input('new_end_date', sql.Date, body.new_end_date as string)
+    .input('additional_months', sql.Int, additionalMonths)
+    .query(`
+      UPDATE rental_contracts
+      SET contract_end_date = @new_end_date,
+          total_contract_months = COALESCE(total_contract_months, 0) + @additional_months
+      WHERE id = @id
+    `);
+
+  await logAudit(user, 'rental_contracts', id, 'RENEW', {
+    new_end_date: body.new_end_date,
+    additional_months: additionalMonths,
+  });
+  return { status: 200, jsonBody: { message: '契約を更新しました' } };
 }
 
 // GET /api/alerts
@@ -314,5 +436,7 @@ app.get('contracts', { route: 'contracts', handler: listContracts });
 app.get('contractsDetail', { route: 'contracts/{id}', handler: getContract });
 app.post('contractsCreate', { route: 'contracts', handler: createContract });
 app.post('contractsReturn', { route: 'contracts/{id}/return', handler: returnContract });
+app.post('contractsCancel', { route: 'contracts/{id}/cancel', handler: cancelContract });
+app.post('contractsRenew', { route: 'contracts/{id}/renew', handler: renewContract });
 app.get('alerts', { route: 'alerts', handler: getAlerts });
 app.get('alertsInternal', { route: 'alerts/internal', authLevel: 'function', handler: getAlertsInternal });

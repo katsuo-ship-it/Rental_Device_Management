@@ -105,3 +105,53 @@ export interface DashboardSummary {
     active_contracts: number;
   };
 }
+
+export interface YearlyReportMonth {
+  month: number;
+  active_contracts: number;
+  rental_revenue: number;
+  rental_profit: number;
+  sale_revenue: number;
+  sale_profit: number;
+  repair_cost: number;
+  total_revenue: number;
+  total_profit: number;
+}
+
+export interface YearlyReport {
+  year: number;
+  months: YearlyReportMonth[];
+  totals: Omit<YearlyReportMonth, 'month' | 'active_contracts'>;
+}
+
+export interface CustomerSummary {
+  customer_name: string;
+  customer_dataverse_id: string;
+  active_contracts: number;
+  monthly_revenue: number;
+  monthly_profit: number;
+  earliest_end_date: string;
+  latest_end_date: string;
+}
+
+export interface AuditLog {
+  id: number;
+  table_name: string;
+  record_id: number;
+  action: string;
+  user_name: string;
+  user_email: string;
+  details: string;
+  created_at: string;
+}
+
+export interface ContractRepair {
+  id: number;
+  repair_date: string;
+  repair_cost: number;
+  description: string;
+}
+
+export interface RentalContractDetail extends RentalContract {
+  repairs: ContractRepair[];
+}

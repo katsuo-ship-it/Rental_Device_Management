@@ -1,6 +1,7 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { getPool, sql } from '../shared/db';
 import { verifyToken, unauthorizedResponse } from '../shared/auth';
+import { logAudit } from '../shared/audit';
 
 // GET /api/devices
 async function listDevices(req: HttpRequest, _ctx: InvocationContext): Promise<HttpResponseInit> {
@@ -239,8 +240,9 @@ async function updateDevice(req: HttpRequest, _ctx: InvocationContext): Promise<
 
 // POST /api/devices/:id/sell
 async function sellDevice(req: HttpRequest, _ctx: InvocationContext): Promise<HttpResponseInit> {
+  let user;
   try {
-    await verifyToken(req);
+    user = await verifyToken(req);
   } catch {
     return unauthorizedResponse();
   }
@@ -286,11 +288,58 @@ async function sellDevice(req: HttpRequest, _ctx: InvocationContext): Promise<Ht
       .query(`UPDATE devices SET status = 'sold' WHERE id = @id`);
 
     await transaction.commit();
+    await logAudit(user, 'devices', parseInt(id), 'SELL', {
+      customer_name: body.customer_name,
+      sale_price: body.sale_price,
+    });
     return { status: 200, jsonBody: { message: '販売処理が完了しました' } };
   } catch (err) {
     await transaction.rollback();
     throw err;
   }
+}
+
+// POST /api/devices/:id/repairs — 在庫端末の単独修理記録
+async function addDeviceRepair(req: HttpRequest, _ctx: InvocationContext): Promise<HttpResponseInit> {
+  let user;
+  try {
+    user = await verifyToken(req);
+  } catch {
+    return unauthorizedResponse();
+  }
+
+  const id = req.params.id;
+  const body = await req.json() as Record<string, unknown>;
+  const pool = await getPool();
+
+  const deviceCheck = await pool.request()
+    .input('id', sql.Int, parseInt(id))
+    .query(`SELECT status FROM devices WHERE id = @id`);
+
+  if (deviceCheck.recordset.length === 0) {
+    return { status: 404, jsonBody: { error: '端末が見つかりません' } };
+  }
+  if (!body.repair_date || !body.repair_cost) {
+    return { status: 400, jsonBody: { error: '修理日と修理費は必須です' } };
+  }
+
+  const result = await pool.request()
+    .input('device_id', sql.Int, parseInt(id))
+    .input('repair_date', sql.Date, body.repair_date as string)
+    .input('repair_cost', sql.Decimal(12, 2), body.repair_cost as number)
+    .input('description', sql.NVarChar, (body.description as string) || null)
+    .query(`
+      INSERT INTO repairs (device_id, repair_date, repair_cost, description)
+      OUTPUT INSERTED.id
+      VALUES (@device_id, @repair_date, @repair_cost, @description)
+    `);
+
+  const repairId = result.recordset[0].id;
+  await logAudit(user, 'repairs', repairId, 'REPAIR', {
+    device_id: parseInt(id),
+    repair_cost: body.repair_cost,
+  });
+  return { status: 201, jsonBody: { id: repairId, message: '修理記録を追加しました' } };
 }
 
 // 登録
@@ -299,3 +348,4 @@ app.get('devicesById', { route: 'devices/{id}', handler: getDevice });
 app.post('devicesCreate', { route: 'devices', handler: createDevice });
 app.put('devicesUpdate', { route: 'devices/{id}', handler: updateDevice });
 app.post('devicesSell', { route: 'devices/{id}/sell', handler: sellDevice });
+app.post('devicesRepair', { route: 'devices/{id}/repairs', handler: addDeviceRepair });

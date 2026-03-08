@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
 import { RentalContract } from '../types';
@@ -31,6 +31,12 @@ export default function Contracts() {
   const [error, setError] = useState('');
   const [status, setStatus] = useState<'active' | 'returned' | 'cancelled'>('active');
 
+  // クライアントサイドフィルター
+  const [filterCustomer, setFilterCustomer] = useState('');
+  const [filterModel, setFilterModel] = useState('');
+  const [filterEndFrom, setFilterEndFrom] = useState('');
+  const [filterEndTo, setFilterEndTo] = useState('');
+
   const fetchContracts = async (s = status) => {
     setLoading(true);
     setError('');
@@ -45,6 +51,16 @@ export default function Contracts() {
   };
 
   useEffect(() => { fetchContracts(); }, [status]);
+
+  const filtered = useMemo(() => {
+    return contracts.filter((c) => {
+      if (filterCustomer && !c.customer_name?.toLowerCase().includes(filterCustomer.toLowerCase())) return false;
+      if (filterModel && !c.model_name?.toLowerCase().includes(filterModel.toLowerCase())) return false;
+      if (filterEndFrom && c.contract_end_date && c.contract_end_date < filterEndFrom) return false;
+      if (filterEndTo && c.contract_end_date && c.contract_end_date > filterEndTo) return false;
+      return true;
+    });
+  }, [contracts, filterCustomer, filterModel, filterEndFrom, filterEndTo]);
 
   const fmt = (n: number) => n?.toLocaleString('ja-JP') ?? '-';
   const fmtDate = (d?: string) => d ? format(new Date(d), 'yyyy/MM/dd', { locale: ja }) : '-';
@@ -70,6 +86,50 @@ export default function Contracts() {
         </div>
       </div>
 
+      {/* フィルターバー */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <input
+            type="text"
+            placeholder="お客様名"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            value={filterCustomer}
+            onChange={(e) => setFilterCustomer(e.target.value)}
+          />
+          <input
+            type="text"
+            placeholder="機種名"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            value={filterModel}
+            onChange={(e) => setFilterModel(e.target.value)}
+          />
+          <input
+            type="date"
+            title="終了日 From"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            value={filterEndFrom}
+            onChange={(e) => setFilterEndFrom(e.target.value)}
+          />
+          <input
+            type="date"
+            title="終了日 To"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            value={filterEndTo}
+            onChange={(e) => setFilterEndTo(e.target.value)}
+          />
+        </div>
+        {(filterCustomer || filterModel || filterEndFrom || filterEndTo) && (
+          <div className="mt-2 flex justify-end">
+            <button
+              onClick={() => { setFilterCustomer(''); setFilterModel(''); setFilterEndFrom(''); setFilterEndTo(''); }}
+              className="text-xs text-gray-500 hover:text-gray-700 underline"
+            >
+              フィルタークリア
+            </button>
+          </div>
+        )}
+      </div>
+
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
       )}
@@ -88,13 +148,13 @@ export default function Contracts() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {contracts.length === 0 ? (
+                {filtered.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="py-12 text-center text-gray-500">
-                      {STATUS_LABELS[status]}の契約はありません
+                      {contracts.length > 0 ? 'フィルター条件に一致する契約がありません' : `${STATUS_LABELS[status]}の契約はありません`}
                     </td>
                   </tr>
-                ) : contracts.map((c) => (
+                ) : filtered.map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${STATUS_COLORS[c.status]}`}>
@@ -132,17 +192,23 @@ export default function Contracts() {
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
                         <Link
+                          to={`/contracts/${c.id}`}
+                          className="px-2 py-1 text-xs bg-blue-50 border border-blue-200 text-blue-700 rounded hover:bg-blue-100"
+                        >
+                          詳細
+                        </Link>
+                        <Link
                           to={`/devices/${c.device_id}`}
                           className="px-2 py-1 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-100"
                         >
-                          端末詳細
+                          端末
                         </Link>
                         {c.status === 'active' && (
                           <button
                             onClick={() => navigate(`/contracts/${c.id}/return`)}
                             className="px-2 py-1 text-xs bg-orange-500 text-white rounded hover:bg-orange-600"
                           >
-                            返却処理
+                            返却
                           </button>
                         )}
                       </div>
@@ -155,8 +221,10 @@ export default function Contracts() {
         )}
       </div>
 
-      {!loading && contracts.length > 0 && (
-        <p className="text-xs text-gray-400 text-right">{contracts.length} 件表示（最大500件）</p>
+      {!loading && (
+        <p className="text-xs text-gray-400 text-right">
+          {filtered.length} 件表示{filtered.length !== contracts.length ? `（全${contracts.length}件中）` : '（最大500件）'}
+        </p>
       )}
     </div>
   );
