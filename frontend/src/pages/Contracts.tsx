@@ -156,11 +156,11 @@ export default function Contracts() {
           <div className="py-16 text-center text-gray-500">読み込み中...</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="min-w-full text-base">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   {['ステータス', 'お客様名', '機種名', '管理番号', '契約開始日', '契約終了日', '残日数', '月額エンドU', '月額利益', '操作'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
+                    <th key={h} className="px-4 py-3 text-left text-sm font-semibold text-gray-500 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -182,7 +182,7 @@ export default function Contracts() {
                     <td className="px-4 py-3 text-gray-700">
                       {c.model_name} <span className="text-gray-400">{c.color}</span>
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-500 whitespace-nowrap">{c.management_no || '-'}</td>
+                    <td className="px-4 py-3 font-mono text-sm text-gray-500 whitespace-nowrap">{c.management_no || '-'}</td>
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{fmtDate(c.contract_start_date)}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className={
