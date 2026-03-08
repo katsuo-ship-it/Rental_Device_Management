@@ -182,7 +182,7 @@ export default function Contracts() {
                     <td className="px-4 py-3 align-middle text-gray-700">
                       {c.model_name} <span className="text-gray-400">{c.color}</span>
                     </td>
-                    <td className="px-4 py-3 align-middle text-center font-mono text-sm text-gray-500 whitespace-nowrap">{c.management_no || '-'}</td>
+                    <td className="px-4 py-3 align-middle text-center font-mono text-gray-500 whitespace-nowrap">{c.management_no || '-'}</td>
                     <td className="px-4 py-3 align-middle text-center text-gray-600 whitespace-nowrap">{fmtDate(c.contract_start_date)}</td>
                     <td className="px-4 py-3 align-middle text-center whitespace-nowrap">
                       <span className={
