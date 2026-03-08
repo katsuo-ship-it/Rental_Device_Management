@@ -91,6 +91,16 @@ async function createContract(req: HttpRequest, _ctx: InvocationContext): Promis
       return { status: 400, jsonBody: { error: 'この端末は現在レンタルまたは販売済みです' } };
     }
 
+    // 必須フィールドのバリデーション
+    if (!body.customer_name || typeof body.customer_name !== 'string' || !(body.customer_name as string).trim()) {
+      await transaction.rollback();
+      return { status: 400, jsonBody: { error: 'お客様名は必須です' } };
+    }
+    if (!body.monthly_wholesale_price || !body.monthly_end_user_price) {
+      await transaction.rollback();
+      return { status: 400, jsonBody: { error: '月額卸価格と月額エンドユーザー価格は必須です' } };
+    }
+
     // 契約日付の前後関係チェック
     const startDate = new Date(body.contract_start_date as string);
     const endDate = new Date(body.contract_end_date as string);

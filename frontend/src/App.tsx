@@ -10,6 +10,7 @@ import DeviceForm from './pages/DeviceForm';
 import SellForm from './pages/SellForm';
 import RentalForm from './pages/RentalForm';
 import ReturnForm from './pages/ReturnForm';
+import Contracts from './pages/Contracts';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 
@@ -57,7 +58,7 @@ function AppRoutes() {
           <Route path="/devices/:id" element={<DeviceDetail />} />
           <Route path="/devices/:id/edit" element={<DeviceForm />} />
           <Route path="/devices/:id/sell" element={<SellForm />} />
-          <Route path="/contracts" element={<Navigate to="/devices" replace />} />
+          <Route path="/contracts" element={<Contracts />} />
           <Route path="/contracts/new" element={<RentalForm />} />
           <Route path="/contracts/:id/return" element={<ReturnForm />} />
           <Route path="/reports" element={<Reports />} />

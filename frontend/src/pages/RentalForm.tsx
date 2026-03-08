@@ -38,7 +38,9 @@ export default function RentalForm() {
 
   useEffect(() => {
     if (deviceId) {
-      apiFetch<Device>(`/devices/${deviceId}`).then(setDevice);
+      apiFetch<Device>(`/devices/${deviceId}`)
+        .then(setDevice)
+        .catch(() => setError('端末情報の取得に失敗しました。端末一覧から再度操作してください。'));
     }
   }, [deviceId]);
 
