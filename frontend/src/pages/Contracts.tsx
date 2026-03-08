@@ -17,6 +17,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 function DaysBadge({ days }: { days: number }) {
+  if (days < 0)   return <span className="px-2 py-0.5 text-xs bg-red-600 text-white rounded-full font-bold">要確認</span>;
   if (days <= 7)  return <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full font-bold">残{days}日</span>;
   if (days <= 30) return <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full font-bold">残{days}日</span>;
   if (days <= 60) return <span className="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded-full">残{days}日</span>;
@@ -40,24 +41,40 @@ export default function Contracts() {
   const fetchContracts = async (s = status) => {
     setLoading(true);
     setError('');
+
+    const timeoutId = setTimeout(() => {
+      setError('接続がタイムアウトしました。ページを再読み込みしてください。');
+      setLoading(false);
+    }, 20000);
+
     try {
       const data = await apiFetch<RentalContract[]>(`/contracts?status=${s}`);
       setContracts(data);
     } catch (e) {
       setError((e as Error).message || 'データの取得に失敗しました');
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchContracts(); }, [status]);
+  useEffect(() => {
+    // タブ切り替え時にフィルターをリセット
+    setFilterCustomer('');
+    setFilterModel('');
+    setFilterEndFrom('');
+    setFilterEndTo('');
+    fetchContracts();
+  }, [status]);
 
   const filtered = useMemo(() => {
     return contracts.filter((c) => {
       if (filterCustomer && !c.customer_name?.toLowerCase().includes(filterCustomer.toLowerCase())) return false;
       if (filterModel && !c.model_name?.toLowerCase().includes(filterModel.toLowerCase())) return false;
-      if (filterEndFrom && c.contract_end_date && c.contract_end_date < filterEndFrom) return false;
-      if (filterEndTo && c.contract_end_date && c.contract_end_date > filterEndTo) return false;
+      // ISOstring ("2026-03-31T00:00:00.000Z") 対策: 先頭10文字だけで比較
+      const endDate = c.contract_end_date?.slice(0, 10) ?? '';
+      if (filterEndFrom && endDate < filterEndFrom) return false;
+      if (filterEndTo && endDate > filterEndTo) return false;
       return true;
     });
   }, [contracts, filterCustomer, filterModel, filterEndFrom, filterEndTo]);
@@ -168,13 +185,17 @@ export default function Contracts() {
                     <td className="px-4 py-3 font-mono text-xs text-gray-500">{c.management_no || '-'}</td>
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{fmtDate(c.contract_start_date)}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={
-                        c.days_until_end != null && c.days_until_end <= 30 && c.status === 'active'
-                          ? 'font-semibold text-orange-700'
-                          : 'text-gray-600'
-                      }>
-                        {fmtDate(c.contract_end_date)}
-                      </span>
+                      {c.status === 'active' && c.days_until_end != null && c.days_until_end < 0 ? (
+                        <span className="text-xs text-red-600 font-semibold">要確認</span>
+                      ) : (
+                        <span className={
+                          c.days_until_end != null && c.days_until_end <= 30 && c.status === 'active'
+                            ? 'font-semibold text-orange-700'
+                            : 'text-gray-600'
+                        }>
+                          {fmtDate(c.contract_end_date)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {c.status === 'active' && c.days_until_end != null
@@ -186,7 +207,7 @@ export default function Contracts() {
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-green-700">
                       {c.monthly_end_user_price != null && c.monthly_wholesale_price != null
-                        ? `¥${fmt(c.monthly_end_user_price - c.monthly_wholesale_price)}`
+                        ? `¥${fmt((c.monthly_end_user_price + (c.op_coverage_price || 0)) - c.monthly_wholesale_price)}`
                         : '-'}
                     </td>
                     <td className="px-4 py-3">
