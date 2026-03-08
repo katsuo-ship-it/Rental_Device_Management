@@ -1,6 +1,10 @@
 import { useMsal } from '@azure/msal-react';
 import { apiRequest, dataverseRequest } from '../auth/msalConfig';
 
+// 本番: VITE_API_BASE_URL = Azure Functions の URL (例: https://rental-func-xxx.azurewebsites.net)
+// 開発: 未設定 → vite.config.ts のプロキシが /api/* を localhost:7071 に転送
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+
 export function useApi() {
   const { instance, accounts } = useMsal();
   const account = accounts[0];
@@ -26,7 +30,7 @@ export function useApi() {
     options: RequestInit = {}
   ): Promise<T> {
     const token = await getToken();
-    const res = await fetch(`/api${path}`, {
+    const res = await fetch(`${API_BASE}/api${path}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -43,7 +47,7 @@ export function useApi() {
 
   async function apiFetchWithDataverse<T>(path: string): Promise<T> {
     const [token, dvToken] = await Promise.all([getToken(), getDataverseToken()]);
-    const res = await fetch(`/api${path}`, {
+    const res = await fetch(`${API_BASE}/api${path}`, {
       headers: {
         Authorization: `Bearer ${token}`,
         'x-dataverse-token': dvToken,
@@ -58,7 +62,7 @@ export function useApi() {
 
   async function downloadFile(path: string, filename: string) {
     const token = await getToken();
-    const res = await fetch(`/api${path}`, {
+    const res = await fetch(`${API_BASE}/api${path}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!res.ok) throw new Error('ダウンロードに失敗しました');
@@ -73,7 +77,7 @@ export function useApi() {
 
   async function uploadFile<T>(path: string, file: File): Promise<T> {
     const token = await getToken();
-    const res = await fetch(`/api${path}`, {
+    const res = await fetch(`${API_BASE}/api${path}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,

@@ -10,10 +10,18 @@ RESOURCE_GROUP="rg-rental-management"
 LOCATION="japaneast"
 
 # ── 必須環境変数チェック ──────────────────────────────────────────
-if [ -z "$ENTRA_CLIENT_ID" ] || [ -z "$ENTRA_TENANT_ID" ]; then
-  echo "エラー: ENTRA_CLIENT_ID と ENTRA_TENANT_ID を環境変数に設定してください"
-  echo "  export ENTRA_CLIENT_ID=<クライアントID>"
-  echo "  export ENTRA_TENANT_ID=<テナントID>"
+MISSING_VARS=()
+[ -z "$ENTRA_CLIENT_ID" ]    && MISSING_VARS+=("ENTRA_CLIENT_ID")
+[ -z "$ENTRA_TENANT_ID" ]    && MISSING_VARS+=("ENTRA_TENANT_ID")
+[ -z "$VITE_ENTRA_CLIENT_ID" ]    && MISSING_VARS+=("VITE_ENTRA_CLIENT_ID")
+[ -z "$VITE_ENTRA_TENANT_ID" ]    && MISSING_VARS+=("VITE_ENTRA_TENANT_ID")
+[ -z "$VITE_DATAVERSE_URL" ]      && MISSING_VARS+=("VITE_DATAVERSE_URL")
+
+if [ ${#MISSING_VARS[@]} -gt 0 ]; then
+  echo "エラー: 以下の環境変数を設定してください:"
+  for v in "${MISSING_VARS[@]}"; do
+    echo "  export $v=<値>"
+  done
   exit 1
 fi
 
@@ -81,7 +89,11 @@ if [ -n "$SWA_NAME" ]; then
     --query "properties.apiKey" --output tsv)
 
   FUNC_URL=$(echo "$OUTPUTS" | jq -r '.funcAppUrl.value')
-  VITE_API_BASE_URL="$FUNC_URL" npm run build
+  VITE_API_BASE_URL="$FUNC_URL" \
+  VITE_ENTRA_CLIENT_ID="$VITE_ENTRA_CLIENT_ID" \
+  VITE_ENTRA_TENANT_ID="$VITE_ENTRA_TENANT_ID" \
+  VITE_DATAVERSE_URL="$VITE_DATAVERSE_URL" \
+  npm run build
 
   npx @azure/static-web-apps-cli deploy dist \
     --deployment-token "$DEPLOY_TOKEN" \
@@ -89,7 +101,11 @@ if [ -n "$SWA_NAME" ]; then
 else
   echo "警告: Static Web App が見つかりません。手動でフロントエンドをデプロイしてください。"
   FUNC_URL=$(echo "$OUTPUTS" | jq -r '.funcAppUrl.value')
-  VITE_API_BASE_URL="$FUNC_URL" npm run build
+  VITE_API_BASE_URL="$FUNC_URL" \
+  VITE_ENTRA_CLIENT_ID="$VITE_ENTRA_CLIENT_ID" \
+  VITE_ENTRA_TENANT_ID="$VITE_ENTRA_TENANT_ID" \
+  VITE_DATAVERSE_URL="$VITE_DATAVERSE_URL" \
+  npm run build
   echo "生成された dist/ フォルダを Azure Static Web Apps にアップロードしてください"
 fi
 
@@ -105,5 +121,5 @@ echo "2. Entra IDアプリ登録でStatic Web AppsのURLをリダイレクトURI
 echo "3. Teamsに専用チャンネルを作成し、WebhookをLogic Appsに設定"
 echo "4. Logic Appsのテンプレート (logicapp-alert.json) をAzureポータルからインポート"
 echo ""
-echo "SQL Admin Password をメモしておいてください (次回の再デプロイで必要):"
-echo "  export SQL_ADMIN_PASSWORD='$SQL_ADMIN_PASSWORD'"
+echo "SQL Admin Password を安全な場所に保管してください (次回の再デプロイで必要):"
+echo "  export SQL_ADMIN_PASSWORD='********'"
