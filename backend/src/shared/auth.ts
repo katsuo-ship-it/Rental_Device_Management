@@ -5,6 +5,10 @@ import jwksClient from 'jwks-rsa';
 const tenantId = process.env.ENTRA_TENANT_ID || '';
 const clientId = process.env.ENTRA_CLIENT_ID || '';
 
+if (!tenantId || !clientId) {
+  throw new Error('[auth] 必須環境変数が未設定です: ENTRA_TENANT_ID および ENTRA_CLIENT_ID を設定してください');
+}
+
 const client = jwksClient({
   jwksUri: `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`,
   cache: true,

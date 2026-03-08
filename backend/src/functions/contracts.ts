@@ -107,6 +107,14 @@ async function createContract(req: HttpRequest, _ctx: InvocationContext): Promis
       await transaction.rollback();
       return { status: 400, jsonBody: { error: '月額卸価格と月額エンドユーザー価格は必須です' } };
     }
+    if ((body.monthly_wholesale_price as number) < 0 || (body.monthly_end_user_price as number) < 0) {
+      await transaction.rollback();
+      return { status: 400, jsonBody: { error: '月額価格に負の値は指定できません' } };
+    }
+    if (body.op_coverage_price != null && (body.op_coverage_price as number) < 0) {
+      await transaction.rollback();
+      return { status: 400, jsonBody: { error: 'OP保証価格に負の値は指定できません' } };
+    }
 
     // 契約日付の前後関係チェック
     const startDate = new Date(body.contract_start_date as string);
@@ -340,6 +348,11 @@ async function renewContract(req: HttpRequest, _ctx: InvocationContext): Promise
   if (newEndDate <= currentEndDate) {
     return { status: 400, jsonBody: { error: '新しい契約終了日は現在の終了日より後の日付を指定してください' } };
   }
+  const maxEndDate = new Date(currentEndDate);
+  maxEndDate.setFullYear(maxEndDate.getFullYear() + 5);
+  if (newEndDate > maxEndDate) {
+    return { status: 400, jsonBody: { error: '契約更新は最大5年先まで指定できます' } };
+  }
 
   // 増加月数を日付差から計算（切り捨て）
   const diffMs = newEndDate.getTime() - currentEndDate.getTime();
@@ -415,10 +428,12 @@ async function getAlertsInternal(req: HttpRequest, _ctx: InvocationContext): Pro
 
   // 60日・30日・7日ちょうどの契約をアラートログに記録し、
   // 当日すでに送信済みの契約はTeams通知対象から除外する（Logic Appsリトライ時の重複送信防止）
+  // ※ バックエンドで[60/30/7]日のみに絞り込むため Logic Apps側の重複フィルターは不要
   const alertTargets = result.recordset.filter(
     (r: { days_until_end: number }) => [60, 30, 7].includes(r.days_until_end)
   );
-  const notifiedContractIds = new Set<number>();
+  let loggedCount = 0;
+  const alreadySentIds = new Set<number>();
   for (const target of alertTargets) {
     const alertType = target.days_until_end === 60 ? '60days'
       : target.days_until_end === 30 ? '30days' : '7days';
@@ -430,18 +445,26 @@ async function getAlertsInternal(req: HttpRequest, _ctx: InvocationContext): Pro
           INSERT INTO alert_logs (contract_id, alert_type, sent_date)
           VALUES (@contract_id, @alert_type, CAST(GETDATE() AS DATE))
         `);
+      loggedCount++;
     } catch {
       // UNIQUE制約違反 = 当日すでに送信済み → 通知対象から除外する
-      notifiedContractIds.add(target.id);
+      alreadySentIds.add(target.id);
     }
   }
 
-  // 当日送信済みの契約を除いたリストを返す（Logic Appsが重複通知しないように）
-  const filteredRecords = result.recordset.filter(
-    (r: { id: number }) => !notifiedContractIds.has(r.id)
+  // 当日送信済みを除いた[60/30/7]日の契約のみを返す
+  const pendingAlerts = alertTargets.filter(
+    (r: { id: number }) => !alreadySentIds.has(r.id)
   );
 
-  return { status: 200, jsonBody: filteredRecords };
+  return {
+    status: 200,
+    jsonBody: {
+      alerts: pendingAlerts,
+      logged_count: loggedCount,
+      already_sent_count: alreadySentIds.size,
+    }
+  };
 }
 
 app.get('contracts', { route: 'contracts', handler: listContracts });

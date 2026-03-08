@@ -22,7 +22,13 @@ export default function ReturnForm() {
   useEffect(() => {
     if (!id) return;
     apiFetch<RentalContract>(`/contracts/${id}`)
-      .then(setContract)
+      .then((c) => {
+        if (c.status !== 'active') {
+          setError('この契約はすでに返却済みまたはキャンセルされています');
+          return;
+        }
+        setContract(c);
+      })
       .catch(() => setError('契約情報の取得に失敗しました'));
   }, [id]);
 

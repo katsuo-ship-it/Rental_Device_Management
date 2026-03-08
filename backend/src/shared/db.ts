@@ -1,7 +1,11 @@
 import sql from 'mssql';
 
+if (!process.env.DB_SERVER) {
+  throw new Error('[db] 必須環境変数が未設定です: DB_SERVER を設定してください');
+}
+
 const config: sql.config = {
-  server: process.env.DB_SERVER || '',
+  server: process.env.DB_SERVER,
   database: process.env.DB_NAME || 'rental_management',
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
