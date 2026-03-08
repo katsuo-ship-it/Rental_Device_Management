@@ -46,8 +46,11 @@ async function importFromExcel(req: HttpRequest, _ctx: InvocationContext): Promi
           'in_stock';
 
         // 端末登録（management_no が重複する場合はスキップして既存IDを使用）
+        // 空文字はNULLに変換（createDevice/updateDeviceと統一 + 空管理番号の重複IDマッチを防止）
+        const mgmtNo = (row['管理番号'] as string) || null;
+
         const deviceResult = await pool.request()
-          .input('management_no', sql.NVarChar, row['管理番号'] as string)
+          .input('management_no', sql.NVarChar, mgmtNo)
           .input('device_type', sql.NVarChar, deviceType)
           .input('model_name', sql.NVarChar, row['機種名'] as string)
           .input('color', sql.NVarChar, row['端末カラー'] as string)
@@ -155,7 +158,7 @@ async function importFromExcel(req: HttpRequest, _ctx: InvocationContext): Promi
 
         results.success++;
       } catch (err) {
-        results.errors.push(`行 ${i + 3}: ${(err as Error).message}`);
+        results.errors.push(`行 ${i + 3}: データの登録に失敗しました`);
       }
     }
   }

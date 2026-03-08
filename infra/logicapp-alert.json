@@ -35,7 +35,7 @@
               "inputs": {
                 "method": "GET",
                 "uri": "[concat(parameters('apiBaseUrl'), '/api/alerts/internal')]",
-                "headers": { "x-functions-key": "@parameters('apiKey')" }
+                "headers": { "x-functions-key": "[parameters('apiKey')]" }
               }
             },
             "アラート解析": {

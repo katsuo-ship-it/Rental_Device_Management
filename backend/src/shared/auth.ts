@@ -38,7 +38,9 @@ export async function verifyToken(req: HttpRequest): Promise<AuthUser> {
       token,
       getKey,
       {
-        audience: clientId,
+        // v2.0アクセストークンの aud クレームは Application ID URI 形式 (api://<clientId>)
+        // bare GUIDではなくURI形式で検証しないと常に "jwt audience invalid" になる
+        audience: `api://${clientId}`,
         issuer: [
           `https://login.microsoftonline.com/${tenantId}/v2.0`,
           `https://sts.windows.net/${tenantId}/`,

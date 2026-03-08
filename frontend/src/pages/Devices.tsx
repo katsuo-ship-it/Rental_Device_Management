@@ -22,6 +22,7 @@ export default function Devices() {
   const navigate = useNavigate();
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filters, setFilters] = useState({
     status: '',
     customer: '',
@@ -33,11 +34,17 @@ export default function Devices() {
 
   const fetchDevices = async (f = filters) => {
     setLoading(true);
-    const params = new URLSearchParams();
-    Object.entries(f).forEach(([k, v]) => { if (v) params.set(k, v); });
-    const data = await apiFetch<Device[]>(`/devices?${params.toString()}`);
-    setDevices(data);
-    setLoading(false);
+    setError('');
+    try {
+      const params = new URLSearchParams();
+      Object.entries(f).forEach(([k, v]) => { if (v) params.set(k, v); });
+      const data = await apiFetch<Device[]>(`/devices?${params.toString()}`);
+      setDevices(data);
+    } catch (e) {
+      setError((e as Error).message || 'データの取得に失敗しました');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchDevices(); }, []);
@@ -125,6 +132,8 @@ export default function Devices() {
           </button>
         </div>
       </div>
+
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
 
       {/* テーブル */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
