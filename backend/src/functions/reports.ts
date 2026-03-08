@@ -190,6 +190,7 @@ async function getSummary(req: HttpRequest, _ctx: InvocationContext): Promise<Ht
       COUNT(*) AS active_contracts
     FROM rental_contracts
     WHERE status = 'active'
+      AND (billing_start_date IS NULL OR billing_start_date <= GETDATE())
   `);
 
   return {

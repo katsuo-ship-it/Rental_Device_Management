@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MsalProvider, useIsAuthenticated, useMsal } from '@azure/msal-react';
 import { PublicClientApplication } from '@azure/msal-browser';
-import { msalConfig, apiRequest } from './auth/msalConfig';
+import { msalConfig, loginRequest } from './auth/msalConfig';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Devices from './pages/Devices';
@@ -19,7 +19,7 @@ function LoginPage() {
   const { instance } = useMsal();
 
   const handleLogin = async () => {
-    await instance.loginPopup(apiRequest);
+    await instance.loginPopup(loginRequest);
   };
 
   return (

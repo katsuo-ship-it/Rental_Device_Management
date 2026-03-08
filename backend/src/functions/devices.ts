@@ -135,9 +135,11 @@ async function createDevice(req: HttpRequest, _ctx: InvocationContext): Promise<
 
   const body = await req.json() as Record<string, unknown>;
   const pool = await getPool();
+  // 空文字はNULLとして扱う（フィルタードUNIQUEインデックスがNULL・空文字を除外するため）
+  const mgmtNo = (body.management_no as string) || null;
 
   const result = await pool.request()
-    .input('management_no', sql.NVarChar, body.management_no as string)
+    .input('management_no', sql.NVarChar, mgmtNo)
     .input('device_type', sql.NVarChar, body.device_type as string)
     .input('model_name', sql.NVarChar, body.model_name as string)
     .input('color', sql.NVarChar, body.color as string)
@@ -188,10 +190,11 @@ async function updateDevice(req: HttpRequest, _ctx: InvocationContext): Promise<
   const id = req.params.id;
   const body = await req.json() as Record<string, unknown>;
   const pool = await getPool();
+  const mgmtNo = (body.management_no as string) || null;
 
   const updateResult = await pool.request()
     .input('id', sql.Int, parseInt(id))
-    .input('management_no', sql.NVarChar, body.management_no as string)
+    .input('management_no', sql.NVarChar, mgmtNo)
     .input('device_type', sql.NVarChar, body.device_type as string)
     .input('model_name', sql.NVarChar, body.model_name as string)
     .input('color', sql.NVarChar, body.color as string)

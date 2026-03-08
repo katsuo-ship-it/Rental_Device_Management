@@ -26,12 +26,19 @@ export default function Reports() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [report, setReport] = useState<MonthlyReport | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const fetchReport = async () => {
     setLoading(true);
-    const data = await apiFetch<MonthlyReport>(`/reports/monthly?year=${year}&month=${month}`);
-    setReport(data);
-    setLoading(false);
+    setError('');
+    try {
+      const data = await apiFetch<MonthlyReport>(`/reports/monthly?year=${year}&month=${month}`);
+      setReport(data);
+    } catch (e) {
+      setError((e as Error).message || 'データの取得に失敗しました');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchReport(); }, [year, month]);
@@ -61,7 +68,7 @@ export default function Reports() {
             value={year}
             onChange={(e) => setYear(parseInt(e.target.value))}
           >
-            {[2024, 2025, 2026, 2027].map((y) => (
+            {Array.from({ length: 5 }, (_, i) => now.getFullYear() - 1 + i).map((y) => (
               <option key={y} value={y}>{y}年</option>
             ))}
           </select>
@@ -85,6 +92,8 @@ export default function Reports() {
           </button>
         </div>
       </div>
+
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
 
       {loading ? (
         <div className="py-16 text-center text-gray-500">読み込み中...</div>

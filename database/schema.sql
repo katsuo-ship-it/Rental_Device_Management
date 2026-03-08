@@ -6,7 +6,7 @@
 -- 端末テーブル
 CREATE TABLE devices (
     id              INT IDENTITY(1,1) PRIMARY KEY,
-    management_no   NVARCHAR(50)    UNIQUE,               -- 管理番号
+    management_no   NVARCHAR(50),                          -- 管理番号（NULL許容・空文字禁止はアプリ側で保証）
     device_type     NVARCHAR(20)    NOT NULL,              -- 種別: 'smartphone' | 'accessory'
     model_name      NVARCHAR(100)   NOT NULL,              -- 機種名
     color           NVARCHAR(50),                          -- 端末カラー
@@ -111,13 +111,19 @@ CREATE TABLE alert_logs (
     id              INT IDENTITY(1,1) PRIMARY KEY,
     contract_id     INT             NOT NULL REFERENCES rental_contracts(id),
     alert_type      NVARCHAR(20)    NOT NULL,              -- '60days' | '30days' | '7days'
+    sent_date       DATE            NOT NULL DEFAULT CAST(GETDATE() AS DATE), -- 送信日（重複防止用）
     sent_at         DATETIME2       DEFAULT GETDATE(),
-    success         BIT DEFAULT 1
+    success         BIT DEFAULT 1,
+    -- 同一契約・同一アラート種別は1日1件のみ（Logic Appsリトライによる重複を防止）
+    CONSTRAINT UQ_alert_logs_contract_day UNIQUE (contract_id, alert_type, sent_date)
 );
 
 -- インデックス
 CREATE INDEX IX_devices_status ON devices(status);
-CREATE INDEX IX_devices_management_no ON devices(management_no);
+-- management_no: NULL・空文字を除いた範囲で一意（管理番号未入力の端末を複数登録可能にする）
+CREATE UNIQUE INDEX IX_devices_management_no
+  ON devices(management_no)
+  WHERE management_no IS NOT NULL AND management_no <> '';
 CREATE INDEX IX_rental_contracts_device_id ON rental_contracts(device_id);
 CREATE INDEX IX_rental_contracts_end_date ON rental_contracts(contract_end_date);
 CREATE INDEX IX_rental_contracts_status ON rental_contracts(status);

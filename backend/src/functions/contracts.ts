@@ -172,11 +172,15 @@ async function returnContract(req: HttpRequest, _ctx: InvocationContext): Promis
 
     const contractResult = await new sql.Request(transaction)
       .input('id', sql.Int, parseInt(id))
-      .query(`SELECT device_id FROM rental_contracts WHERE id = @id`);
+      .query(`SELECT device_id, status FROM rental_contracts WHERE id = @id`);
 
     if (contractResult.recordset.length === 0) {
       await transaction.rollback();
       return { status: 404, jsonBody: { error: '契約が見つかりません' } };
+    }
+    if (contractResult.recordset[0].status !== 'active') {
+      await transaction.rollback();
+      return { status: 400, jsonBody: { error: 'この契約はすでに返却済みまたはキャンセルされています' } };
     }
 
     const deviceId = contractResult.recordset[0].device_id;
@@ -276,7 +280,10 @@ async function getAlertsInternal(req: HttpRequest, _ctx: InvocationContext): Pro
       await pool.request()
         .input('contract_id', sql.Int, target.id)
         .input('alert_type', sql.NVarChar, alertType)
-        .query(`INSERT INTO alert_logs (contract_id, alert_type) VALUES (@contract_id, @alert_type)`);
+        .query(`
+          INSERT INTO alert_logs (contract_id, alert_type, sent_date)
+          VALUES (@contract_id, @alert_type, CAST(GETDATE() AS DATE))
+        `);
     } catch {
       // ログ書き込み失敗はアラート配信に影響させない
     }

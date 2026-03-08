@@ -336,7 +336,8 @@ export default function RentalForm() {
             disabled={
               (step === 1 && !device) ||
               (step === 2 && !selectedCustomer) ||
-              (step === 3 && (!form.contract_start_date || !form.contract_end_date))
+              (step === 3 && (!form.contract_start_date || !form.contract_end_date)) ||
+              (step === 4 && (!form.monthly_wholesale_price || !form.monthly_end_user_price))
             }
             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-40"
           >
