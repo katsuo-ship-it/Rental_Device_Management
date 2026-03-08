@@ -6,7 +6,8 @@ import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 
 function AlertBadge({ days }: { days: number }) {
-  if (days <= 7) return <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full font-bold">7日以内</span>;
+  if (days < 0)   return <span className="px-2 py-0.5 text-xs bg-red-600 text-white rounded-full font-bold">要確認</span>;
+  if (days <= 7)  return <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full font-bold">7日以内</span>;
   if (days <= 30) return <span className="px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full font-bold">30日以内</span>;
   return <span className="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded-full font-bold">60日以内</span>;
 }
