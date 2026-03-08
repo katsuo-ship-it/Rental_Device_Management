@@ -210,11 +210,11 @@ export default function Devices() {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     {['管理番号', '機種名・カラー・容量', 'ステータス', 'お客様名', '契約開始日', '契約終了日', '月額料金', '仕入価格', 'IMEI', '修理履歴'].map(h => (
-                      <th key={h} className="px-4 py-3 align-middle text-left text-sm font-semibold text-gray-500 whitespace-nowrap">
+                      <th key={h} className="px-4 py-3 align-middle text-center text-sm font-semibold text-gray-500 whitespace-nowrap">
                         {h}
                       </th>
                     ))}
-                    <th className="px-4 py-3 align-middle"></th>
+                    <th className="px-4 py-3 align-middle text-center text-sm font-semibold text-gray-500">操作</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -222,19 +222,19 @@ export default function Devices() {
                     <tr><td colSpan={11} className="py-12 text-center text-gray-500">データがありません</td></tr>
                   ) : devices.map((d) => (
                     <tr key={d.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 align-middle font-mono whitespace-nowrap">{d.management_no || '-'}</td>
+                      <td className="px-4 py-3 align-middle text-center font-mono whitespace-nowrap">{d.management_no || '-'}</td>
                       <td className="px-4 py-3 align-middle">
                         <p className="font-medium text-gray-800 whitespace-nowrap">{d.model_name}</p>
                         <p className="text-sm text-gray-500 whitespace-nowrap">{d.color} {d.capacity}</p>
                       </td>
-                      <td className="px-4 py-3 align-middle">
+                      <td className="px-4 py-3 align-middle text-center">
                         <span className={`px-2 py-0.5 text-sm rounded-full font-medium whitespace-nowrap ${STATUS_COLORS[d.status]}`}>
                           {STATUS_LABELS[d.status]}
                         </span>
                       </td>
                       <td className="px-4 py-3 align-middle text-gray-700 whitespace-nowrap">{d.customer_name || '-'}</td>
-                      <td className="px-4 py-3 align-middle text-gray-600 whitespace-nowrap">{fmtDate(d.contract_start_date)}</td>
-                      <td className="px-4 py-3 align-middle whitespace-nowrap">
+                      <td className="px-4 py-3 align-middle text-center text-gray-600 whitespace-nowrap">{fmtDate(d.contract_start_date)}</td>
+                      <td className="px-4 py-3 align-middle text-center whitespace-nowrap">
                         {d.contract_end_date ? (
                           <span className="text-gray-600">{fmtDate(d.contract_end_date)}</span>
                         ) : '-'}
@@ -245,7 +245,7 @@ export default function Devices() {
                       <td className="px-4 py-3 align-middle text-right text-gray-700 whitespace-nowrap">
                         {d.purchase_price ? `¥${fmt(d.purchase_price)}` : '-'}
                       </td>
-                      <td className="px-4 py-3 align-middle font-mono text-sm text-gray-500 whitespace-nowrap">{d.imei || '-'}</td>
+                      <td className="px-4 py-3 align-middle text-center font-mono text-sm text-gray-500 whitespace-nowrap">{d.imei || '-'}</td>
                       <td className="px-4 py-3 align-middle text-center">
                         {d.total_repair_cost ? (
                           <span className="text-orange-600 font-medium">有</span>
@@ -253,8 +253,8 @@ export default function Devices() {
                           <span className="text-gray-400">無</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 align-middle">
-                        <div className="flex gap-1">
+                      <td className="px-4 py-3 align-middle text-center">
+                        <div className="flex justify-center gap-1">
                           <Link
                             to={`/devices/${d.id}`}
                             className="px-2 py-1 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-100"
