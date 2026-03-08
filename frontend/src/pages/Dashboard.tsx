@@ -15,20 +15,33 @@ export default function Dashboard() {
   const { apiFetch } = useApi();
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState<RentalContract[]>([]);
+  const [overdueCount, setOverdueCount] = useState(0);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    const timeout = setTimeout(() => {
+      setError('接続がタイムアウトしました。ページを再読み込みしてください。');
+      setLoading(false);
+    }, 20000);
+
     Promise.all([
       apiFetch<RentalContract[]>('/alerts'),
       apiFetch<DashboardSummary>('/reports/summary'),
-    ]).then(([a, s]) => {
+      apiFetch<RentalContract[]>('/contracts?status=active'),
+    ]).then(([a, s, all]) => {
       setAlerts(a);
       setSummary(s);
+      setOverdueCount(all.filter(c => c.days_until_end != null && c.days_until_end < 0).length);
     }).catch((e: Error) => {
       setError(e.message || 'データの取得に失敗しました');
-    }).finally(() => setLoading(false));
+    }).finally(() => {
+      clearTimeout(timeout);
+      setLoading(false);
+    });
+
+    return () => clearTimeout(timeout);
   }, []);
 
   if (loading) return <div className="text-center py-20 text-gray-500">読み込み中...</div>;
@@ -42,8 +55,12 @@ export default function Dashboard() {
 
       {/* サマリーカード */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <SummaryCard label="レンタル中" value={`${summary?.devices.renting ?? 0} 台`} color="blue" />
-        <SummaryCard label="在庫" value={`${summary?.devices.in_stock ?? 0} 台`} color="green" />
+        <Link to="/devices?status=renting">
+          <SummaryCard label="レンタル中" value={`${summary?.devices.renting ?? 0} 台`} color="blue" clickable />
+        </Link>
+        <Link to="/devices?status=in_stock">
+          <SummaryCard label="在庫" value={`${summary?.devices.in_stock ?? 0} 台`} color="green" clickable />
+        </Link>
         <SummaryCard label="今月売上" value={`¥${fmt(summary?.current_month.monthly_revenue ?? 0)}`} color="purple" />
         <SummaryCard label="今月利益" value={`¥${fmt(summary?.current_month.monthly_profit ?? 0)}`} color="indigo" />
       </div>
@@ -51,14 +68,21 @@ export default function Dashboard() {
       {/* アラート一覧 */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-800">
-            契約期限アラート
-            {alerts.length > 0 && (
-              <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
-                {alerts.length}
+          <h2 className="text-lg font-semibold text-gray-800">契約期限アラート</h2>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-600">
+              契約期間超過
+              <span className="ml-1.5 bg-red-600 text-white text-xs font-bold rounded-full px-2 py-0.5">
+                {overdueCount}件
               </span>
-            )}
-          </h2>
+            </span>
+            <span className="text-sm text-gray-600">
+              契約終了間近
+              <span className={`ml-1.5 text-xs font-bold rounded-full px-2 py-0.5 ${alerts.length > 0 ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                {alerts.length}件
+              </span>
+            </span>
+          </div>
         </div>
 
         {alerts.length === 0 ? (
@@ -105,7 +129,7 @@ export default function Dashboard() {
   );
 }
 
-function SummaryCard({ label, value, color }: { label: string; value: string; color: string }) {
+function SummaryCard({ label, value, color, clickable }: { label: string; value: string; color: string; clickable?: boolean }) {
   const colors: Record<string, string> = {
     blue: 'bg-blue-50 border-blue-200 text-blue-700',
     green: 'bg-green-50 border-green-200 text-green-700',
@@ -113,9 +137,10 @@ function SummaryCard({ label, value, color }: { label: string; value: string; co
     indigo: 'bg-indigo-50 border-indigo-200 text-indigo-700',
   };
   return (
-    <div className={`rounded-xl border p-4 ${colors[color]}`}>
+    <div className={`rounded-xl border p-4 ${colors[color]} ${clickable ? 'hover:brightness-95 cursor-pointer transition-all' : ''}`}>
       <p className="text-xs font-medium opacity-70">{label}</p>
       <p className="text-2xl font-bold mt-1">{value}</p>
+      {clickable && <p className="text-xs opacity-50 mt-1">→ 一覧を見る</p>}
     </div>
   );
 }
