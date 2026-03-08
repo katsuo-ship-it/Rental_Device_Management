@@ -29,6 +29,7 @@ export default function Devices() {
   const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [deviceType, setDeviceType] = useState<'smartphone' | 'accessory'>('smartphone');
   const [filters, setFilters] = useState({
     status: searchParams.get('status') || '',
     customer: '',
@@ -38,12 +39,13 @@ export default function Devices() {
     imei: '',
   });
 
-  const fetchDevices = async (f = filters, p = page, ps = pageSize) => {
+  const fetchDevices = async (f = filters, p = page, ps = pageSize, dt = deviceType) => {
     setLoading(true);
     setError('');
     try {
       const params = new URLSearchParams();
       Object.entries(f).forEach(([k, v]) => { if (v) params.set(k, v); });
+      params.set('deviceType', dt);
       params.set('page', String(p));
       params.set('pageSize', String(ps));
       const res = await apiFetch<{ data: Device[]; total: number; page: number; pageSize: number }>(`/devices?${params.toString()}`);
@@ -58,27 +60,33 @@ export default function Devices() {
 
   useEffect(() => { fetchDevices(); }, []);
 
+  const handleTabChange = (dt: 'smartphone' | 'accessory') => {
+    setDeviceType(dt);
+    setPage(1);
+    fetchDevices(filters, 1, pageSize, dt);
+  };
+
   const handleSearch = () => {
     setPage(1);
-    fetchDevices(filters, 1, pageSize);
+    fetchDevices(filters, 1, pageSize, deviceType);
   };
 
   const handleClear = () => {
     const empty = { status: '', customer: '', endDateFrom: '', endDateTo: '', model: '', imei: '' };
     setFilters(empty);
     setPage(1);
-    fetchDevices(empty, 1, pageSize);
+    fetchDevices(empty, 1, pageSize, deviceType);
   };
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
-    fetchDevices(filters, newPage, pageSize);
+    fetchDevices(filters, newPage, pageSize, deviceType);
   };
 
   const handlePageSizeChange = (newSize: number) => {
     setPageSize(newSize);
     setPage(1);
-    fetchDevices(filters, 1, newSize);
+    fetchDevices(filters, 1, newSize, deviceType);
   };
 
   const totalPages = Math.ceil(total / pageSize);
@@ -107,6 +115,23 @@ export default function Devices() {
         >
           + 新規登録
         </Link>
+      </div>
+
+      {/* カテゴリタブ */}
+      <div className="flex gap-1 border-b border-gray-200">
+        {(['smartphone', 'accessory'] as const).map((dt) => (
+          <button
+            key={dt}
+            onClick={() => handleTabChange(dt)}
+            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              deviceType === dt
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {dt === 'smartphone' ? '📱 スマートフォン' : '🎒 アクセサリー'}
+          </button>
+        ))}
       </div>
 
       {/* フィルター */}
