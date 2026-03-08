@@ -66,6 +66,8 @@ export default function ContractDetail() {
 
   const handleRenew = async () => {
     if (!newEndDate) { setRenewError('新しい終了日を入力してください'); return; }
+    const currentEnd = contract.contract_end_date?.split('T')[0] ?? '';
+    if (newEndDate <= currentEnd) { setRenewError('新しい終了日は現在の終了日より後の日付を入力してください'); return; }
     setRenewing(true);
     setRenewError('');
     try {

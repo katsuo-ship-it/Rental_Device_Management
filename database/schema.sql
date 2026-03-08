@@ -77,7 +77,7 @@ CREATE TABLE returns (
     contract_id         INT             NOT NULL REFERENCES rental_contracts(id),
     device_id           INT             NOT NULL REFERENCES devices(id),
     return_date         DATE            NOT NULL,          -- 返却日
-    condition_ok        BIT DEFAULT 1,                     -- 動作OK
+    condition_ok        BIT NOT NULL DEFAULT 1,            -- 動作OK
     condition_notes     NVARCHAR(500),                     -- 状態備考
     created_at          DATETIME2       DEFAULT GETDATE()
 );

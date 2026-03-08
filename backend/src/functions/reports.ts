@@ -237,7 +237,7 @@ async function yearlyReport(req: HttpRequest, _ctx: InvocationContext): Promise<
       )
       SELECT
         mo.m AS month,
-        COUNT(rc.id) AS active_contracts,
+        COUNT(DISTINCT rc.id) AS active_contracts,
         COALESCE(SUM(rc.monthly_end_user_price + COALESCE(rc.op_coverage_price, 0)), 0) AS rental_revenue,
         COALESCE(SUM(rc.monthly_end_user_price + COALESCE(rc.op_coverage_price, 0) - rc.monthly_wholesale_price), 0) AS rental_profit,
         COALESCE((

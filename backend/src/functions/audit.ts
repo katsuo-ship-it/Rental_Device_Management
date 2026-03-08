@@ -17,7 +17,8 @@ async function getAuditLogs(req: HttpRequest, _ctx: InvocationContext): Promise<
 
   const pool = await getPool();
   const request = pool.request();
-  let query = `SELECT TOP ${limit} * FROM audit_logs WHERE 1=1`;
+  request.input('limit', sql.Int, limit);
+  let query = `SELECT * FROM audit_logs WHERE 1=1`;
 
   if (tableName) {
     query += ' AND table_name = @table_name';
@@ -28,7 +29,7 @@ async function getAuditLogs(req: HttpRequest, _ctx: InvocationContext): Promise<
     request.input('record_id', sql.Int, recordId);
   }
 
-  query += ' ORDER BY created_at DESC';
+  query += ' ORDER BY created_at DESC OFFSET 0 ROWS FETCH NEXT @limit ROWS ONLY';
   const result = await request.query(query);
   return { status: 200, jsonBody: result.recordset };
 }

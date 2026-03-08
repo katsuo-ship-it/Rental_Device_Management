@@ -27,6 +27,13 @@ export default function ReturnForm() {
   }, [id]);
 
   const handleSubmit = async () => {
+    if (!form.condition_ok) {
+      const cost = parseFloat(form.repair_cost);
+      if (!form.repair_cost || isNaN(cost) || cost <= 0) {
+        setError('修理が必要な場合は修理費（1円以上）の入力が必須です');
+        return;
+      }
+    }
     setSubmitting(true);
     setError('');
     try {
@@ -36,7 +43,7 @@ export default function ReturnForm() {
           return_date: form.return_date,
           condition_ok: form.condition_ok,
           condition_notes: form.condition_notes,
-          repair_cost: parseFloat(form.repair_cost) || 0,
+          repair_cost: form.repair_cost ? parseFloat(form.repair_cost) : null,
           repair_description: form.repair_description,
         }),
       });
@@ -104,10 +111,10 @@ export default function ReturnForm() {
           <div className="space-y-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
             <h3 className="text-sm font-semibold text-orange-800">修理費の記録</h3>
             <div>
-              <label className={label}>修理費（税抜）</label>
+              <label className={label}>修理費（税抜）*</label>
               <input type="number" className={input} value={form.repair_cost}
                 onChange={(e) => setForm({ ...form, repair_cost: e.target.value })}
-                placeholder="0" />
+                placeholder="例: 5000" min="1" />
             </div>
             <div>
               <label className={label}>修理内容</label>

@@ -78,7 +78,7 @@ export default function DeviceDetail() {
   useEffect(() => { loadDevice(); }, [id]);
 
   const handleRepairSubmit = async () => {
-    if (!repairDate || !repairCost) { setRepairError('修理日と修理費は必須です'); return; }
+    if (!repairDate || !repairCost || parseFloat(repairCost) <= 0) { setRepairError('修理日と修理費（1円以上）は必須です'); return; }
     setRepairSubmitting(true);
     setRepairError('');
     try {
@@ -260,7 +260,7 @@ export default function DeviceDetail() {
                   className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full"
                   value={repairCost}
                   onChange={(e) => setRepairCost(e.target.value)}
-                  min="0"
+                  min="1"
                 />
               </div>
             </div>

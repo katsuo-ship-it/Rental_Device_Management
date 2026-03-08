@@ -27,15 +27,28 @@ async function listDevices(req: HttpRequest, _ctx: InvocationContext): Promise<H
       d.supplier, d.purchase_date, d.arrival_date, d.condition_notes,
       d.carrier_sb, d.carrier_au, d.carrier_his, d.carrier_rakuten,
       d.created_at, d.updated_at,
-      rc.id AS contract_id,
+      rc.contract_id,
       rc.customer_name,
       rc.contract_start_date,
       rc.contract_end_date,
       rc.monthly_end_user_price,
       rc.monthly_wholesale_price,
+      rc.contract_status,
       (SELECT SUM(repair_cost) FROM repairs WHERE device_id = d.id) AS total_repair_cost
     FROM devices d
-    LEFT JOIN rental_contracts rc ON rc.device_id = d.id AND rc.status = 'active'
+    OUTER APPLY (
+      SELECT TOP 1
+        id AS contract_id,
+        customer_name,
+        contract_start_date,
+        contract_end_date,
+        monthly_end_user_price,
+        monthly_wholesale_price,
+        status AS contract_status
+      FROM rental_contracts
+      WHERE device_id = d.id
+      ORDER BY created_at DESC
+    ) rc
     WHERE 1=1
   `;
 

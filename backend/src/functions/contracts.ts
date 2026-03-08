@@ -195,7 +195,7 @@ async function returnContract(req: HttpRequest, _ctx: InvocationContext): Promis
 
     const contractResult = await new sql.Request(transaction)
       .input('id', sql.Int, parseInt(id))
-      .query(`SELECT device_id, status FROM rental_contracts WHERE id = @id`);
+      .query(`SELECT device_id, status FROM rental_contracts WITH (UPDLOCK, HOLDLOCK) WHERE id = @id`);
 
     if (contractResult.recordset.length === 0) {
       await transaction.rollback();
@@ -341,24 +341,36 @@ async function renewContract(req: HttpRequest, _ctx: InvocationContext): Promise
     return { status: 400, jsonBody: { error: '新しい契約終了日は現在の終了日より後の日付を指定してください' } };
   }
 
-  const additionalMonths = parseInt(body.additional_months as string) || 0;
+  // 増加月数を日付差から計算（切り捨て）
+  const diffMs = newEndDate.getTime() - currentEndDate.getTime();
+  const additionalMonths = Math.floor(diffMs / (1000 * 60 * 60 * 24 * 30));
 
-  await pool.request()
-    .input('id', sql.Int, id)
-    .input('new_end_date', sql.Date, body.new_end_date as string)
-    .input('additional_months', sql.Int, additionalMonths)
-    .query(`
-      UPDATE rental_contracts
-      SET contract_end_date = @new_end_date,
-          total_contract_months = COALESCE(total_contract_months, 0) + @additional_months
-      WHERE id = @id
-    `);
+  const transaction = new sql.Transaction(pool);
+  try {
+    await transaction.begin();
+
+    await new sql.Request(transaction)
+      .input('id', sql.Int, id)
+      .input('new_end_date', sql.Date, body.new_end_date as string)
+      .input('additional_months', sql.Int, additionalMonths)
+      .query(`
+        UPDATE rental_contracts
+        SET contract_end_date = @new_end_date,
+            total_contract_months = COALESCE(total_contract_months, 0) + @additional_months
+        WHERE id = @id
+      `);
+
+    await transaction.commit();
+  } catch (err) {
+    await transaction.rollback();
+    throw err;
+  }
 
   await logAudit(user, 'rental_contracts', id, 'RENEW', {
     new_end_date: body.new_end_date,
     additional_months: additionalMonths,
   });
-  return { status: 200, jsonBody: { message: '契約を更新しました' } };
+  return { status: 200, jsonBody: { message: '契約を更新しました', additional_months: additionalMonths } };
 }
 
 // GET /api/alerts
