@@ -40,7 +40,7 @@ export default function ReturnForm() {
           repair_description: form.repair_description,
         }),
       });
-      navigate('/devices');
+      navigate('/contracts');
     } catch (e) {
       setError((e as Error).message);
     } finally {

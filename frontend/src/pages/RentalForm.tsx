@@ -86,7 +86,7 @@ export default function RentalForm() {
           notes: form.notes,
         }),
       });
-      navigate('/devices');
+      navigate('/contracts');
     } catch (e) {
       setError((e as Error).message);
     } finally {
