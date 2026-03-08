@@ -4,10 +4,10 @@
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "node",
 
-    "SQL_SERVER": "your-server.database.windows.net",
-    "SQL_DATABASE": "your-database-name",
-    "SQL_USER": "your-sql-user",
-    "SQL_PASSWORD": "your-sql-password",
+    "DB_SERVER": "your-server.database.windows.net",
+    "DB_NAME": "rental_management",
+    "DB_USER": "sqladmin",
+    "DB_PASSWORD": "your-sql-password",
 
     "ENTRA_TENANT_ID": "your-tenant-id",
     "ENTRA_CLIENT_ID": "your-client-id",

@@ -269,10 +269,12 @@ async function getAlertsInternal(req: HttpRequest, _ctx: InvocationContext): Pro
     ORDER BY rc.contract_end_date ASC
   `);
 
-  // 60日・30日・7日ちょうどの契約をアラートログに記録
+  // 60日・30日・7日ちょうどの契約をアラートログに記録し、
+  // 当日すでに送信済みの契約はTeams通知対象から除外する（Logic Appsリトライ時の重複送信防止）
   const alertTargets = result.recordset.filter(
     (r: { days_until_end: number }) => [60, 30, 7].includes(r.days_until_end)
   );
+  const notifiedContractIds = new Set<number>();
   for (const target of alertTargets) {
     const alertType = target.days_until_end === 60 ? '60days'
       : target.days_until_end === 30 ? '30days' : '7days';
@@ -285,11 +287,17 @@ async function getAlertsInternal(req: HttpRequest, _ctx: InvocationContext): Pro
           VALUES (@contract_id, @alert_type, CAST(GETDATE() AS DATE))
         `);
     } catch {
-      // ログ書き込み失敗はアラート配信に影響させない
+      // UNIQUE制約違反 = 当日すでに送信済み → 通知対象から除外する
+      notifiedContractIds.add(target.id);
     }
   }
 
-  return { status: 200, jsonBody: result.recordset };
+  // 当日送信済みの契約を除いたリストを返す（Logic Appsが重複通知しないように）
+  const filteredRecords = result.recordset.filter(
+    (r: { id: number }) => !notifiedContractIds.has(r.id)
+  );
+
+  return { status: 200, jsonBody: filteredRecords };
 }
 
 app.get('contracts', { route: 'contracts', handler: listContracts });

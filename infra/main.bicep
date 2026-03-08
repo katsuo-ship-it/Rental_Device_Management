@@ -5,6 +5,7 @@
 
 param location string = 'japaneast'
 param prefix string = 'rental'
+@secure()
 param sqlAdminPassword string
 param entraClientId string
 param entraTenantId string
@@ -76,7 +77,7 @@ resource funcApp 'Microsoft.Web/sites@2023-01-01' = {
         { name: 'WEBSITE_CONTENTSHARE', value: '${prefix}-func-content' }
         { name: 'FUNCTIONS_EXTENSION_VERSION', value: '~4' }
         { name: 'FUNCTIONS_WORKER_RUNTIME', value: 'node' }
-        { name: 'WEBSITE_NODE_DEFAULT_VERSION', value: '~20' }
+        { name: 'WEBSITE_NODE_DEFAULT_VERSION', value: '~22' }
         { name: 'DB_SERVER', value: sqlServer.properties.fullyQualifiedDomainName }
         { name: 'DB_NAME', value: 'rental_management' }
         { name: 'DB_USER', value: 'sqladmin' }
@@ -86,7 +87,8 @@ resource funcApp 'Microsoft.Web/sites@2023-01-01' = {
         { name: 'DATAVERSE_URL', value: 'https://org5a73169f.crm7.dynamics.com' }
       ]
       cors: {
-        allowedOrigins: ['https://portal.azure.com', '*']
+        // Static Web Apps の URL のみ許可（ワイルドカード * は本番では使用しない）
+        allowedOrigins: ['https://portal.azure.com', 'https://${staticWebApp.properties.defaultHostname}']
       }
     }
     httpsOnly: true
