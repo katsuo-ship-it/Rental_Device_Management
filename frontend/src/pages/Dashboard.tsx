@@ -15,7 +15,6 @@ export default function Dashboard() {
   const { apiFetch } = useApi();
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState<RentalContract[]>([]);
-  const [overdueCount, setOverdueCount] = useState(0);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -29,11 +28,9 @@ export default function Dashboard() {
     Promise.all([
       apiFetch<RentalContract[]>('/alerts'),
       apiFetch<DashboardSummary>('/reports/summary'),
-      apiFetch<RentalContract[]>('/contracts?status=active'),
-    ]).then(([a, s, all]) => {
+    ]).then(([a, s]) => {
       setAlerts(a);
       setSummary(s);
-      setOverdueCount(all.filter(c => c.days_until_end != null && c.days_until_end < 0).length);
     }).catch((e: Error) => {
       setError(e.message || 'データの取得に失敗しました');
     }).finally(() => {
@@ -48,6 +45,8 @@ export default function Dashboard() {
   if (error) return <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>;
 
   const fmt = (n: number) => n?.toLocaleString('ja-JP') ?? '-';
+  const overdueCount = alerts.filter(a => a.days_until_end != null && a.days_until_end < 0).length;
+  const upcomingCount = alerts.filter(a => a.days_until_end != null && a.days_until_end >= 0).length;
 
   return (
     <div className="space-y-6">
@@ -78,8 +77,8 @@ export default function Dashboard() {
             </span>
             <span className="text-sm text-gray-600">
               契約終了間近
-              <span className={`ml-1.5 text-xs font-bold rounded-full px-2 py-0.5 ${alerts.length > 0 ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
-                {alerts.length}件
+              <span className={`ml-1.5 text-xs font-bold rounded-full px-2 py-0.5 ${upcomingCount > 0 ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                {upcomingCount}件
               </span>
             </span>
           </div>
