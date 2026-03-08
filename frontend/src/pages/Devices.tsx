@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
 import { Device, DeviceStatus } from '../types';
 import { format } from 'date-fns';
@@ -17,14 +17,20 @@ const STATUS_COLORS: Record<DeviceStatus, string> = {
   sold: 'bg-gray-100 text-gray-500',
 };
 
+const PAGE_SIZE_OPTIONS = [10, 15, 20, 30];
+
 export default function Devices() {
   const { apiFetch } = useApi();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [devices, setDevices] = useState<Device[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filters, setFilters] = useState({
-    status: '',
+    status: searchParams.get('status') || '',
     customer: '',
     endDateFrom: '',
     endDateTo: '',
@@ -32,14 +38,17 @@ export default function Devices() {
     imei: '',
   });
 
-  const fetchDevices = async (f = filters) => {
+  const fetchDevices = async (f = filters, p = page, ps = pageSize) => {
     setLoading(true);
     setError('');
     try {
       const params = new URLSearchParams();
       Object.entries(f).forEach(([k, v]) => { if (v) params.set(k, v); });
-      const data = await apiFetch<Device[]>(`/devices?${params.toString()}`);
-      setDevices(data);
+      params.set('page', String(p));
+      params.set('pageSize', String(ps));
+      const res = await apiFetch<{ data: Device[]; total: number; page: number; pageSize: number }>(`/devices?${params.toString()}`);
+      setDevices(res.data);
+      setTotal(res.total);
     } catch (e) {
       setError((e as Error).message || 'データの取得に失敗しました');
     } finally {
@@ -49,8 +58,44 @@ export default function Devices() {
 
   useEffect(() => { fetchDevices(); }, []);
 
+  const handleSearch = () => {
+    setPage(1);
+    fetchDevices(filters, 1, pageSize);
+  };
+
+  const handleClear = () => {
+    const empty = { status: '', customer: '', endDateFrom: '', endDateTo: '', model: '', imei: '' };
+    setFilters(empty);
+    setPage(1);
+    fetchDevices(empty, 1, pageSize);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    fetchDevices(filters, newPage, pageSize);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+    fetchDevices(filters, 1, newSize);
+  };
+
+  const totalPages = Math.ceil(total / pageSize);
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+
   const fmt = (n: number) => n?.toLocaleString('ja-JP') ?? '-';
   const fmtDate = (d?: string) => d ? format(new Date(d), 'yyyy/MM/dd', { locale: ja }) : '-';
+
+  // page number buttons: show up to 5 around current page
+  const pageButtons = () => {
+    const pages: number[] = [];
+    const start = Math.max(1, page - 2);
+    const end = Math.min(totalPages, start + 4);
+    for (let i = start; i <= end; i++) pages.push(i);
+    return pages;
+  };
 
   return (
     <div className="space-y-4">
@@ -86,14 +131,12 @@ export default function Devices() {
           />
           <input
             type="date"
-            placeholder="終了日(From)"
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
             value={filters.endDateFrom}
             onChange={(e) => setFilters({ ...filters, endDateFrom: e.target.value })}
           />
           <input
             type="date"
-            placeholder="終了日(To)"
             className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
             value={filters.endDateTo}
             onChange={(e) => setFilters({ ...filters, endDateTo: e.target.value })}
@@ -115,17 +158,13 @@ export default function Devices() {
         </div>
         <div className="mt-3 flex gap-2">
           <button
-            onClick={fetchDevices}
+            onClick={handleSearch}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
           >
             検索
           </button>
           <button
-            onClick={() => {
-              const empty = { status: '', customer: '', endDateFrom: '', endDateTo: '', model: '', imei: '' };
-              setFilters(empty);
-              fetchDevices(empty);
-            }}
+            onClick={handleClear}
             className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50"
           >
             クリア
@@ -140,92 +179,151 @@ export default function Devices() {
         {loading ? (
           <div className="py-16 text-center text-gray-500">読み込み中...</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  {['管理番号', '機種名・カラー・容量', 'ステータス', 'お客様名', '契約開始日', '契約終了日', '月額料金', '仕入価格', 'IMEI', '修理履歴'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                      {h}
-                    </th>
-                  ))}
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {devices.length === 0 ? (
-                  <tr><td colSpan={11} className="py-12 text-center text-gray-500">データがありません</td></tr>
-                ) : devices.map((d) => (
-                  <tr key={d.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-mono text-xs">{d.management_no || '-'}</td>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-gray-800">{d.model_name}</p>
-                      <p className="text-xs text-gray-500">{d.color} {d.capacity}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${STATUS_COLORS[d.status]}`}>
-                        {STATUS_LABELS[d.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">{d.customer_name || '-'}</td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{fmtDate(d.contract_start_date)}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {d.contract_end_date ? (
-                        <span className="text-gray-600">{fmtDate(d.contract_end_date)}</span>
-                      ) : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-700">
-                      {d.monthly_end_user_price ? `¥${fmt(d.monthly_end_user_price)}` : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-700">
-                      {d.purchase_price ? `¥${fmt(d.purchase_price)}` : '-'}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{d.imei || '-'}</td>
-                    <td className="px-4 py-3 text-center">
-                      {d.total_repair_cost ? (
-                        <span className="text-orange-600 font-medium">有</span>
-                      ) : (
-                        <span className="text-gray-400">無</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1">
-                        <Link
-                          to={`/devices/${d.id}`}
-                          className="px-2 py-1 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-100"
-                        >
-                          詳細
-                        </Link>
-                        {d.status === 'in_stock' ? (
-                          <>
-                            <button
-                              onClick={() => navigate(`/contracts/new?deviceId=${d.id}`)}
-                              className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                            >
-                              貸出
-                            </button>
-                            <button
-                              onClick={() => navigate(`/devices/${d.id}/sell`)}
-                              className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
-                            >
-                              販売
-                            </button>
-                          </>
-                        ) : d.status === 'renting' ? (
-                          <button
-                            onClick={() => navigate(`/contracts/${d.contract_id}/return`)}
-                            className="px-2 py-1 text-xs bg-orange-500 text-white rounded hover:bg-orange-600"
-                          >
-                            返却
-                          </button>
-                        ) : null}
-                      </div>
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    {['管理番号', '機種名・カラー・容量', 'ステータス', 'お客様名', '契約開始日', '契約終了日', '月額料金', '仕入価格', 'IMEI', '修理履歴'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                    <th className="px-4 py-3"></th>
                   </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {devices.length === 0 ? (
+                    <tr><td colSpan={11} className="py-12 text-center text-gray-500">データがありません</td></tr>
+                  ) : devices.map((d) => (
+                    <tr key={d.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-mono text-xs">{d.management_no || '-'}</td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-gray-800">{d.model_name}</p>
+                        <p className="text-xs text-gray-500">{d.color} {d.capacity}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${STATUS_COLORS[d.status]}`}>
+                          {STATUS_LABELS[d.status]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700">{d.customer_name || '-'}</td>
+                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{fmtDate(d.contract_start_date)}</td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {d.contract_end_date ? (
+                          <span className="text-gray-600">{fmtDate(d.contract_end_date)}</span>
+                        ) : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-700">
+                        {d.monthly_end_user_price ? `¥${fmt(d.monthly_end_user_price)}` : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-700">
+                        {d.purchase_price ? `¥${fmt(d.purchase_price)}` : '-'}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-xs text-gray-500">{d.imei || '-'}</td>
+                      <td className="px-4 py-3 text-center">
+                        {d.total_repair_cost ? (
+                          <span className="text-orange-600 font-medium">有</span>
+                        ) : (
+                          <span className="text-gray-400">無</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1">
+                          <Link
+                            to={`/devices/${d.id}`}
+                            className="px-2 py-1 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-100"
+                          >
+                            詳細
+                          </Link>
+                          {d.status === 'in_stock' ? (
+                            <>
+                              <button
+                                onClick={() => navigate(`/contracts/new?deviceId=${d.id}`)}
+                                className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                              >
+                                貸出
+                              </button>
+                              <button
+                                onClick={() => navigate(`/devices/${d.id}/sell`)}
+                                className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                              >
+                                販売
+                              </button>
+                            </>
+                          ) : d.status === 'renting' ? (
+                            <button
+                              onClick={() => navigate(`/contracts/${d.contract_id}/return`)}
+                              className="px-2 py-1 text-xs bg-orange-500 text-white rounded hover:bg-orange-600"
+                            >
+                              返却
+                            </button>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* ページネーション */}
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+              <div className="flex items-center gap-3 text-sm text-gray-600">
+                <span>{total} 件中 {from}～{to} 件</span>
+                <span className="text-gray-400">|</span>
+                <span>表示件数:</span>
+                {PAGE_SIZE_OPTIONS.map(s => (
+                  <button
+                    key={s}
+                    onClick={() => handlePageSizeChange(s)}
+                    className={`px-2 py-0.5 rounded text-xs font-medium ${pageSize === s ? 'bg-blue-600 text-white' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    {s}
+                  </button>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => handlePageChange(1)}
+                  disabled={page === 1}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  «
+                </button>
+                <button
+                  onClick={() => handlePageChange(page - 1)}
+                  disabled={page === 1}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ‹
+                </button>
+                {pageButtons().map(p => (
+                  <button
+                    key={p}
+                    onClick={() => handlePageChange(p)}
+                    className={`px-3 py-1 text-xs border rounded ${p === page ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  onClick={() => handlePageChange(page + 1)}
+                  disabled={page === totalPages}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  ›
+                </button>
+                <button
+                  onClick={() => handlePageChange(totalPages)}
+                  disabled={page === totalPages}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  »
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

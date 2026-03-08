@@ -44,8 +44,8 @@ export default function ContractDetail() {
 
   useEffect(() => { load(); }, [id]);
 
-  const fmt = (n?: number) => n != null ? `¥${n.toLocaleString('ja-JP')}` : '-';
-  const fmtDate = (d?: string) => d ? format(new Date(d), 'yyyy/MM/dd', { locale: ja }) : '-';
+  const fmt = (n?: number | null) => n != null ? `¥${n.toLocaleString('ja-JP')}` : '-';
+  const fmtDate = (d?: string | null) => d ? format(new Date(d), 'yyyy/MM/dd', { locale: ja }) : '-';
 
   const handleCancel = async () => {
     setCancelling(true);
@@ -65,6 +65,7 @@ export default function ContractDetail() {
   };
 
   const handleRenew = async () => {
+    if (!contract) return;
     if (!newEndDate) { setRenewError('新しい終了日を入力してください'); return; }
     const currentEnd = contract.contract_end_date?.split('T')[0] ?? '';
     if (newEndDate <= currentEnd) { setRenewError('新しい終了日は現在の終了日より後の日付を入力してください'); return; }
@@ -178,7 +179,7 @@ export default function ContractDetail() {
         <h2 className="text-base font-semibold text-gray-700">料金情報</h2>
         <div className={rowCls}><span className={labelCls}>月額卸価格</span><span className={valueCls}>{fmt(contract.monthly_wholesale_price)}</span></div>
         <div className={rowCls}><span className={labelCls}>月額エンドU価格</span><span className={valueCls}>{fmt(contract.monthly_end_user_price)}</span></div>
-        <div className={rowCls}><span className={labelCls}>OP保証</span><span className={valueCls}>{contract.op_coverage ? `あり（${contract.op_coverage_details || ''}）` : 'なし'}</span></div>
+        <div className={rowCls}><span className={labelCls}>OP保証</span><span className={valueCls}>{contract.op_coverage ? `あり${contract.op_coverage_details ? `（${contract.op_coverage_details}）` : ''}` : 'なし'}</span></div>
         {contract.op_coverage && (
           <div className={rowCls}><span className={labelCls}>OP保証料</span><span className={valueCls}>{fmt(contract.op_coverage_price)}</span></div>
         )}
