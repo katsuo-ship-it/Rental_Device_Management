@@ -203,7 +203,7 @@ export default function Devices() {
                         <p className="text-xs text-gray-500">{d.color} {d.capacity}</p>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${STATUS_COLORS[d.status]}`}>
+                        <span className={`px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${STATUS_COLORS[d.status]}`}>
                           {STATUS_LABELS[d.status]}
                         </span>
                       </td>
