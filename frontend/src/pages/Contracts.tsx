@@ -173,18 +173,18 @@ export default function Contracts() {
                   </tr>
                 ) : filtered.map((c) => (
                   <tr key={c.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-middle">
                       <span className={`px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${STATUS_COLORS[c.status]}`}>
                         {STATUS_LABELS[c.status]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-medium text-gray-800">{c.customer_name}</td>
-                    <td className="px-4 py-3 text-gray-700">
+                    <td className="px-4 py-3 align-middle font-medium text-gray-800">{c.customer_name}</td>
+                    <td className="px-4 py-3 align-middle text-gray-700">
                       {c.model_name} <span className="text-gray-400">{c.color}</span>
                     </td>
-                    <td className="px-4 py-3 font-mono text-sm text-gray-500 whitespace-nowrap">{c.management_no || '-'}</td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{fmtDate(c.contract_start_date)}</td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 align-middle font-mono text-sm text-gray-500 whitespace-nowrap">{c.management_no || '-'}</td>
+                    <td className="px-4 py-3 align-middle text-gray-600 whitespace-nowrap">{fmtDate(c.contract_start_date)}</td>
+                    <td className="px-4 py-3 align-middle whitespace-nowrap">
                       <span className={
                         c.days_until_end != null && c.days_until_end <= 30 && c.status === 'active'
                           ? 'font-semibold text-orange-700'
@@ -193,20 +193,20 @@ export default function Contracts() {
                         {fmtDate(c.contract_end_date)}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-middle">
                       {c.status === 'active' && c.days_until_end != null
                         ? <DaysBadge days={c.days_until_end} />
                         : '-'}
                     </td>
-                    <td className="px-4 py-3 text-right text-gray-700">
+                    <td className="px-4 py-3 align-middle text-right text-gray-700">
                       {c.monthly_end_user_price ? `¥${fmt(c.monthly_end_user_price)}` : '-'}
                     </td>
-                    <td className="px-4 py-3 text-right font-medium text-green-700">
+                    <td className="px-4 py-3 align-middle text-right font-medium text-green-700">
                       {c.monthly_end_user_price != null && c.monthly_wholesale_price != null
                         ? `¥${fmt((c.monthly_end_user_price + (c.op_coverage_price || 0)) - c.monthly_wholesale_price)}`
                         : '-'}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 align-middle">
                       <div className="flex gap-1">
                         <Link
                           to={`/contracts/${c.id}`}
