@@ -134,9 +134,9 @@ function MonthlyTab() {
             <div className="px-6 py-4 border-b">
               <h2 className="text-base font-semibold text-gray-700">レンタル明細（{report.rentals.length}件）</h2>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-auto max-h-72">
               <table className="min-w-full text-sm">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-50 sticky top-0 z-10">
                   <tr>
                     {['お客様名', '機種名', '管理番号', '契約期間', '月額卸', '月額エンドU', 'OP保証料', '月額利益'].map(h => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
