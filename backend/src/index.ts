@@ -5,3 +5,5 @@ import './functions/contracts';
 import './functions/customers';
 import './functions/reports';
 import './functions/import';
+import './functions/warmup';
+
