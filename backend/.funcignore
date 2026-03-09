@@ -6,3 +6,4 @@ src/
 *.md
 deploy.zip
 *.bak
+node_modules/
