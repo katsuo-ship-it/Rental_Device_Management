@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApi } from '../hooks/useApi';
 import { YearlyReport, CustomerSummary } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
@@ -312,12 +312,18 @@ function YearlyTab() {
   );
 }
 
+const CUSTOMER_ROW_HEIGHT = 45;
+
 // ===================== 顧客別タブ =====================
 function CustomersTab() {
   const { apiFetch } = useApi();
   const [customers, setCustomers] = useState<CustomerSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const tableAreaRef = useRef<HTMLDivElement>(null);
+  const isFirstPageSize = useRef(true);
 
   useEffect(() => {
     apiFetch<CustomerSummary[]>('/reports/customers')
@@ -325,6 +331,23 @@ function CustomersTab() {
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    const el = tableAreaRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const h = entries[0].contentRect.height;
+      const newSize = Math.max(5, Math.floor((h - 44) / CUSTOMER_ROW_HEIGHT));
+      setPageSize(prev => (prev !== newSize ? newSize : prev));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (isFirstPageSize.current) { isFirstPageSize.current = false; return; }
+    setPage(1);
+  }, [pageSize]);
 
   const fmt = (n: number) => (n ?? 0).toLocaleString('ja-JP');
   const fmtDate = (d?: string) => d ? d.split('T')[0] : '-';
@@ -335,39 +358,72 @@ function CustomersTab() {
   const totalRevenue = customers.reduce((s, c) => s + (c.monthly_revenue || 0), 0);
   const totalProfit = customers.reduce((s, c) => s + (c.monthly_profit || 0), 0);
 
+  const totalPages = Math.ceil(customers.length / pageSize);
+  const from = customers.length === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, customers.length);
+  const pagedRows = customers.slice((page - 1) * pageSize, page * pageSize);
+  const pageButtons = () => {
+    const pages: number[] = [];
+    const start = Math.max(1, page - 2);
+    const end = Math.min(totalPages, start + 4);
+    for (let i = start; i <= end; i++) pages.push(i);
+    return pages;
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col h-full gap-4">
       <div className="grid grid-cols-3 gap-4">
         <Card label="アクティブ顧客数" value={`${customers.length}社`} sub="稼働中" color="blue" />
         <Card label="月額総売上" value={`¥${fmt(totalRevenue)}`} sub="税抜" color="purple" />
         <Card label="月額総利益" value={`¥${fmt(totalProfit)}`} sub="税抜" color="green" />
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                {['お客様名', '稼働契約数', '月額売上', '月額利益', '最近の終了日', '最遅の終了日'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {customers.length === 0 ? (
-                <tr><td colSpan={6} className="py-12 text-center text-gray-500">アクティブな契約がありません</td></tr>
-              ) : customers.map((c) => (
-                <tr key={c.customer_name} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-800">{c.customer_name}</td>
-                  <td className="px-4 py-3 text-center">{c.active_contracts}</td>
-                  <td className="px-4 py-3 text-right text-gray-700">¥{fmt(c.monthly_revenue)}</td>
-                  <td className="px-4 py-3 text-right font-medium text-green-700">¥{fmt(c.monthly_profit)}</td>
-                  <td className="px-4 py-3 text-gray-600">{fmtDate(c.earliest_end_date)}</td>
-                  <td className="px-4 py-3 text-gray-600">{fmtDate(c.latest_end_date)}</td>
+      <div ref={tableAreaRef} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="overflow-x-auto overflow-y-hidden h-full">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  {['お客様名', '稼働契約数', '月額売上', '月額利益', '最近の終了日', '最遅の終了日'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {pagedRows.length === 0 ? (
+                  <tr><td colSpan={6} className="py-12 text-center text-gray-500">アクティブな契約がありません</td></tr>
+                ) : pagedRows.map((c) => (
+                  <tr key={c.customer_name} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-800">{c.customer_name}</td>
+                    <td className="px-4 py-3 text-center">{c.active_contracts}</td>
+                    <td className="px-4 py-3 text-right text-gray-700">¥{fmt(c.monthly_revenue)}</td>
+                    <td className="px-4 py-3 text-right font-medium text-green-700">¥{fmt(c.monthly_profit)}</td>
+                    <td className="px-4 py-3 text-gray-600">{fmtDate(c.earliest_end_date)}</td>
+                    <td className="px-4 py-3 text-gray-600">{fmtDate(c.latest_end_date)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+          <span className="text-sm text-gray-600">{customers.length} 件中 {from}～{to} 件</span>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setPage(1)} disabled={page === 1}
+              className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">«</button>
+            <button onClick={() => setPage(page - 1)} disabled={page === 1}
+              className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">‹</button>
+            {pageButtons().map(p => (
+              <button key={p} onClick={() => setPage(p)}
+                className={`px-3 py-1 text-xs border rounded ${p === page ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
+                {p}
+              </button>
+            ))}
+            <button onClick={() => setPage(page + 1)} disabled={page === totalPages || totalPages === 0}
+              className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">›</button>
+            <button onClick={() => setPage(totalPages)} disabled={page === totalPages || totalPages === 0}
+              className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">»</button>
+          </div>
         </div>
       </div>
     </div>
@@ -405,11 +461,16 @@ export default function Reports() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        {tab === 'monthly' && <MonthlyTab />}
-        {tab === 'yearly' && <YearlyTab />}
-        {tab === 'customers' && <CustomersTab />}
-      </div>
+      {tab === 'customers' ? (
+        <div className="flex-1 min-h-0">
+          <CustomersTab />
+        </div>
+      ) : (
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {tab === 'monthly' && <MonthlyTab />}
+          {tab === 'yearly' && <YearlyTab />}
+        </div>
+      )}
     </div>
   );
 }
