@@ -71,70 +71,78 @@ function MonthlyTab() {
   ] : [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <select
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-          value={year}
-          onChange={(e) => setYear(parseInt(e.target.value))}
-        >
-          {Array.from({ length: 5 }, (_, i) => now.getFullYear() - 1 + i).map((y) => (
-            <option key={y} value={y}>{y}年</option>
-          ))}
-        </select>
-        <select
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-          value={month}
-          onChange={(e) => setMonth(parseInt(e.target.value))}
-        >
-          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-            <option key={m} value={m}>{m}月</option>
-          ))}
-        </select>
-        <button
-          onClick={() => downloadFile(
-            `/reports/monthly/export?year=${year}&month=${month}`,
-            `${year}${String(month).padStart(2, '0')}_report.xlsx`
-          )}
-          className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"
-        >
-          Excelダウンロード
-        </button>
+    <div className="flex flex-col h-full gap-4">
+      {/* 上部固定エリア：操作・カード・グラフ */}
+      <div className="flex-shrink-0 space-y-4">
+        <div className="flex items-center gap-3">
+          <select
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            value={year}
+            onChange={(e) => setYear(parseInt(e.target.value))}
+          >
+            {Array.from({ length: 5 }, (_, i) => now.getFullYear() - 1 + i).map((y) => (
+              <option key={y} value={y}>{y}年</option>
+            ))}
+          </select>
+          <select
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            value={month}
+            onChange={(e) => setMonth(parseInt(e.target.value))}
+          >
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+              <option key={m} value={m}>{m}月</option>
+            ))}
+          </select>
+          <button
+            onClick={() => downloadFile(
+              `/reports/monthly/export?year=${year}&month=${month}`,
+              `${year}${String(month).padStart(2, '0')}_report.xlsx`
+            )}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"
+          >
+            Excelダウンロード
+          </button>
+        </div>
+
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
+
+        {!loading && report && (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <Card label="レンタル売上" value={`¥${fmt(report.summary.rental_revenue)}`} sub="税抜" color="blue" />
+              <Card label="販売売上" value={`¥${fmt(report.summary.sale_revenue)}`} sub="税抜" color="purple" />
+              <Card label="修理費" value={`¥${fmt(report.summary.repair_cost)}`} sub="税抜" color="orange" />
+              <Card label="総利益" value={`¥${fmt(report.summary.total_profit)}`} sub="税抜" color="green" />
+            </div>
+
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <h2 className="text-base font-semibold text-gray-700 mb-3">売上・利益内訳</h2>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis tickFormatter={(v) => `¥${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip formatter={(v: number) => `¥${v.toLocaleString('ja-JP')}`} />
+                  <Legend />
+                  <Bar dataKey="売上" fill="#3b82f6" />
+                  <Bar dataKey="利益" fill="#10b981" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        )}
       </div>
 
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
-
+      {/* 下部スクロールエリア：明細テーブル */}
       {loading ? (
         <div className="py-16 text-center text-gray-500">読み込み中...</div>
       ) : report && (
-        <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card label="レンタル売上" value={`¥${fmt(report.summary.rental_revenue)}`} sub="税抜" color="blue" />
-            <Card label="販売売上" value={`¥${fmt(report.summary.sale_revenue)}`} sub="税抜" color="purple" />
-            <Card label="修理費" value={`¥${fmt(report.summary.repair_cost)}`} sub="税抜" color="orange" />
-            <Card label="総利益" value={`¥${fmt(report.summary.total_profit)}`} sub="税抜" color="green" />
-          </div>
-
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-base font-semibold text-gray-700 mb-4">売上・利益内訳</h2>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis tickFormatter={(v) => `¥${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(v: number) => `¥${v.toLocaleString('ja-JP')}`} />
-                <Legend />
-                <Bar dataKey="売上" fill="#3b82f6" />
-                <Bar dataKey="利益" fill="#10b981" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-4 pb-2">
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             <div className="px-6 py-4 border-b">
               <h2 className="text-base font-semibold text-gray-700">レンタル明細（{report.rentals.length}件）</h2>
             </div>
-            <div className="overflow-x-auto overflow-y-auto max-h-72">
+            <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-50 sticky top-0 z-10">
                   <tr>
@@ -192,7 +200,7 @@ function MonthlyTab() {
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );
@@ -466,7 +474,7 @@ export default function Reports() {
           <CustomersTab />
         </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="flex-1 min-h-0">
           {tab === 'monthly' && <MonthlyTab />}
           {tab === 'yearly' && <YearlyTab />}
         </div>
