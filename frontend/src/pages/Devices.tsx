@@ -54,8 +54,8 @@ export default function Devices() {
       params.set('page', String(p));
       params.set('pageSize', String(ps));
       const res = await apiFetch<{ data: Device[]; total: number; page: number; pageSize: number }>(`/devices?${params.toString()}`);
-      setDevices(res.data);
-      setTotal(res.total);
+      setDevices(res?.data ?? []);
+      setTotal(res?.total ?? 0);
     } catch (e) {
       setError((e as Error).message || 'データの取得に失敗しました');
     } finally {

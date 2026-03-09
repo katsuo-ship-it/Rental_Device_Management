@@ -17,24 +17,46 @@ async function listDevices(req: HttpRequest, _ctx: InvocationContext): Promise<H
   const imei = req.query.get('imei') || '';
   const endDateFrom = req.query.get('endDateFrom') || '';
   const endDateTo = req.query.get('endDateTo') || '';
+  const deviceType = req.query.get('deviceType') || '';
+  const page = Math.max(1, parseInt(req.query.get('page') || '1'));
+  const pageSize = Math.min(500, Math.max(1, parseInt(req.query.get('pageSize') || '15')));
+  const offset = (page - 1) * pageSize;
 
   const pool = await getPool();
-  let query = `
-    SELECT TOP 500
-      d.id, d.management_no, d.device_type, d.model_name, d.color, d.capacity,
-      d.imei, d.status, d.purchase_price, d.wholesale_price,
-      d.check_appearance, d.check_boot, d.check_sim, d.check_charge, d.check_battery,
-      d.supplier, d.purchase_date, d.arrival_date, d.condition_notes,
-      d.carrier_sb, d.carrier_au, d.carrier_his, d.carrier_rakuten,
-      d.created_at, d.updated_at,
-      rc.contract_id,
-      rc.customer_name,
-      rc.contract_start_date,
-      rc.contract_end_date,
-      rc.monthly_end_user_price,
-      rc.monthly_wholesale_price,
-      rc.contract_status,
-      (SELECT SUM(repair_cost) FROM repairs WHERE device_id = d.id) AS total_repair_cost
+
+  const whereInputs: { name: string; value: string }[] = [];
+  let whereClause = `WHERE 1=1`;
+
+  if (deviceType) {
+    whereClause += ` AND d.device_type = @deviceType`;
+    whereInputs.push({ name: 'deviceType', value: deviceType });
+  }
+  if (status) {
+    whereClause += ` AND d.status = @status`;
+    whereInputs.push({ name: 'status', value: status });
+  }
+  if (customer) {
+    whereClause += ` AND rc.customer_name LIKE @customer`;
+    whereInputs.push({ name: 'customer', value: `%${customer}%` });
+  }
+  if (model) {
+    whereClause += ` AND d.model_name LIKE @model`;
+    whereInputs.push({ name: 'model', value: `%${model}%` });
+  }
+  if (imei) {
+    whereClause += ` AND d.imei LIKE @imei`;
+    whereInputs.push({ name: 'imei', value: `%${imei}%` });
+  }
+  if (endDateFrom) {
+    whereClause += ` AND rc.contract_end_date >= @endDateFrom`;
+    whereInputs.push({ name: 'endDateFrom', value: endDateFrom });
+  }
+  if (endDateTo) {
+    whereClause += ` AND rc.contract_end_date <= @endDateTo`;
+    whereInputs.push({ name: 'endDateTo', value: endDateTo });
+  }
+
+  const baseFrom = `
     FROM devices d
     OUTER APPLY (
       SELECT TOP 1
@@ -49,45 +71,49 @@ async function listDevices(req: HttpRequest, _ctx: InvocationContext): Promise<H
       WHERE device_id = d.id
       ORDER BY created_at DESC
     ) rc
-    WHERE 1=1
+    ${whereClause}
   `;
 
-  const inputs: { name: string; value: string }[] = [];
+  const countRequest = pool.request();
+  for (const { name, value } of whereInputs) {
+    countRequest.input(name, sql.NVarChar, value);
+  }
+  const countResult = await countRequest.query(`SELECT COUNT(*) AS total ${baseFrom}`);
+  const total = countResult.recordset[0].total;
 
-  if (status) {
-    query += ` AND d.status = @status`;
-    inputs.push({ name: 'status', value: status });
+  const dataRequest = pool.request();
+  for (const { name, value } of whereInputs) {
+    dataRequest.input(name, sql.NVarChar, value);
   }
-  if (customer) {
-    query += ` AND rc.customer_name LIKE @customer`;
-    inputs.push({ name: 'customer', value: `%${customer}%` });
-  }
-  if (model) {
-    query += ` AND d.model_name LIKE @model`;
-    inputs.push({ name: 'model', value: `%${model}%` });
-  }
-  if (imei) {
-    query += ` AND d.imei LIKE @imei`;
-    inputs.push({ name: 'imei', value: `%${imei}%` });
-  }
-  if (endDateFrom) {
-    query += ` AND rc.contract_end_date >= @endDateFrom`;
-    inputs.push({ name: 'endDateFrom', value: endDateFrom });
-  }
-  if (endDateTo) {
-    query += ` AND rc.contract_end_date <= @endDateTo`;
-    inputs.push({ name: 'endDateTo', value: endDateTo });
-  }
+  dataRequest.input('offset', sql.Int, offset);
+  dataRequest.input('pageSize', sql.Int, pageSize);
 
-  query += ` ORDER BY d.created_at DESC`;
+  const dataQuery = `
+    SELECT
+      d.id, d.management_no, d.device_type, d.model_name, d.color, d.capacity,
+      d.imei, d.status, d.purchase_price, d.wholesale_price,
+      d.check_appearance, d.check_boot, d.check_sim, d.check_charge, d.check_battery,
+      d.supplier, d.purchase_date, d.arrival_date, d.condition_notes,
+      d.carrier_sb, d.carrier_au, d.carrier_his, d.carrier_rakuten,
+      d.created_at, d.updated_at,
+      rc.contract_id,
+      rc.customer_name,
+      rc.contract_start_date,
+      rc.contract_end_date,
+      rc.monthly_end_user_price,
+      rc.monthly_wholesale_price,
+      rc.contract_status,
+      (SELECT SUM(repair_cost) FROM repairs WHERE device_id = d.id) AS total_repair_cost
+    ${baseFrom}
+    ORDER BY d.created_at DESC
+    OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
+  `;
 
-  const request = pool.request();
-  for (const { name, value } of inputs) {
-    request.input(name, sql.NVarChar, value);
-  }
-
-  const result = await request.query(query);
-  return { status: 200, jsonBody: result.recordset };
+  const result = await dataRequest.query(dataQuery);
+  return {
+    status: 200,
+    jsonBody: { data: result.recordset, total, page, pageSize },
+  };
 }
 
 // GET /api/devices/:id
