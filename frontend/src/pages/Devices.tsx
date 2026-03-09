@@ -133,7 +133,21 @@ export default function Devices() {
   return (
     <div className="flex flex-col h-full gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">端末管理</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-800">端末管理</h1>
+          <button
+            onClick={handleSearch}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+          >
+            検索
+          </button>
+          <button
+            onClick={handleClear}
+            className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50"
+          >
+            クリア
+          </button>
+        </div>
         <div className="flex items-center gap-3">
           {/* カテゴリタブ */}
           <div className="flex gap-1">
@@ -206,20 +220,6 @@ export default function Devices() {
             value={filters.imei}
             onChange={(e) => setFilters({ ...filters, imei: e.target.value })}
           />
-        </div>
-        <div className="mt-3 flex gap-2">
-          <button
-            onClick={handleSearch}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
-          >
-            検索
-          </button>
-          <button
-            onClick={handleClear}
-            className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50"
-          >
-            クリア
-          </button>
         </div>
       </div>
 
