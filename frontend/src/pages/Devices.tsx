@@ -134,29 +134,30 @@ export default function Devices() {
     <div className="flex flex-col h-full gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">端末管理</h1>
-        <Link
-          to="/devices/new"
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-        >
-          + 新規登録
-        </Link>
-      </div>
-
-      {/* カテゴリタブ */}
-      <div className="flex gap-1 border-b border-gray-200">
-        {(['smartphone', 'accessory'] as const).map((dt) => (
-          <button
-            key={dt}
-            onClick={() => handleTabChange(dt)}
-            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              deviceType === dt
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
+        <div className="flex items-center gap-3">
+          {/* カテゴリタブ */}
+          <div className="flex gap-1">
+            {(['smartphone', 'accessory'] as const).map((dt) => (
+              <button
+                key={dt}
+                onClick={() => handleTabChange(dt)}
+                className={`px-4 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                  deviceType === dt
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'text-gray-600 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {dt === 'smartphone' ? '📱 スマートフォン' : '🎒 アクセサリー'}
+              </button>
+            ))}
+          </div>
+          <Link
+            to="/devices/new"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
           >
-            {dt === 'smartphone' ? '📱 スマートフォン' : '🎒 アクセサリー'}
-          </button>
-        ))}
+            + 新規登録
+          </Link>
+        </div>
       </div>
 
       {/* フィルター */}
