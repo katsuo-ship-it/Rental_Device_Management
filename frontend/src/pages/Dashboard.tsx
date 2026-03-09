@@ -24,7 +24,7 @@ export default function Dashboard() {
     const timeout = setTimeout(() => {
       setError('接続がタイムアウトしました。ページを再読み込みしてください。');
       setLoading(false);
-    }, 20000);
+    }, 45000);
 
     Promise.all([
       apiFetch<RentalContract[]>('/alerts'),
