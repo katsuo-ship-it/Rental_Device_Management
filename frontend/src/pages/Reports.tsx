@@ -71,7 +71,7 @@ function MonthlyTab() {
   ] : [];
 
   return (
-    <div className="space-y-6">
+    <div className="h-full overflow-y-auto space-y-6">
       <div className="flex items-center gap-3">
         <select
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm"

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
 import { Device, DeviceStatus } from '../types';
@@ -17,7 +17,8 @@ const STATUS_COLORS: Record<DeviceStatus, string> = {
   sold: 'bg-gray-100 text-gray-500',
 };
 
-const PAGE_SIZE_OPTIONS = [10, 15, 20, 30];
+// 行の高さ（py-3 + 2行テキスト）— 余裕を持たせて切れを防ぐ
+const ROW_HEIGHT = 65;
 
 export default function Devices() {
   const { apiFetch } = useApi();
@@ -26,7 +27,7 @@ export default function Devices() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(15);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deviceType, setDeviceType] = useState<'smartphone' | 'accessory'>('smartphone');
@@ -38,6 +39,10 @@ export default function Devices() {
     model: '',
     imei: '',
   });
+
+  // テーブルボディ領域の ref（高さ計測用）
+  const tableBodyAreaRef = useRef<HTMLDivElement>(null);
+  const isFirstRender = useRef(true);
 
   const fetchDevices = async (f = filters, p = page, ps = pageSize, dt = deviceType) => {
     setLoading(true);
@@ -58,7 +63,34 @@ export default function Devices() {
     }
   };
 
+  // 初回フェッチ
   useEffect(() => { fetchDevices(); }, []);
+
+  // テーブルボディ領域の高さから表示行数を自動計算
+  useEffect(() => {
+    const el = tableBodyAreaRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const h = entries[0].contentRect.height;
+      const THEAD_H = 44;
+      const newSize = Math.max(5, Math.floor((h - THEAD_H) / ROW_HEIGHT));
+      setPageSize(prev => (prev !== newSize ? newSize : prev));
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // pageSize 変更時に再フェッチ（初回マウント時はスキップ）
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    setPage(1);
+    fetchDevices(filters, 1, pageSize, deviceType);
+  }, [pageSize]);
 
   const handleTabChange = (dt: 'smartphone' | 'accessory') => {
     setDeviceType(dt);
@@ -83,12 +115,6 @@ export default function Devices() {
     fetchDevices(filters, newPage, pageSize, deviceType);
   };
 
-  const handlePageSizeChange = (newSize: number) => {
-    setPageSize(newSize);
-    setPage(1);
-    fetchDevices(filters, 1, newSize, deviceType);
-  };
-
   const totalPages = Math.ceil(total / pageSize);
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
@@ -96,7 +122,6 @@ export default function Devices() {
   const fmt = (n: number) => n?.toLocaleString('ja-JP') ?? '-';
   const fmtDate = (d?: string) => d ? format(new Date(d), 'yyyy/MM/dd', { locale: ja }) : '-';
 
-  // page number buttons: show up to 5 around current page
   const pageButtons = () => {
     const pages: number[] = [];
     const start = Math.max(1, page - 2);
@@ -106,7 +131,7 @@ export default function Devices() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col h-full gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">端末管理</h1>
         <Link
@@ -200,12 +225,13 @@ export default function Devices() {
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
 
       {/* テーブル */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div ref={tableBodyAreaRef} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
         {loading ? (
           <div className="py-16 text-center text-gray-500">読み込み中...</div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="flex-1 min-h-0 overflow-hidden">
+            <div className="overflow-x-auto overflow-y-hidden h-full">
               <table className="min-w-full text-base">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
@@ -291,23 +317,11 @@ export default function Devices() {
                 </tbody>
               </table>
             </div>
+            </div>
 
             {/* ページネーション */}
             <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-              <div className="flex items-center gap-3 text-sm text-gray-600">
-                <span>{total} 件中 {from}～{to} 件</span>
-                <span className="text-gray-400">|</span>
-                <span>表示件数:</span>
-                {PAGE_SIZE_OPTIONS.map(s => (
-                  <button
-                    key={s}
-                    onClick={() => handlePageSizeChange(s)}
-                    className={`px-2 py-0.5 rounded text-xs font-medium ${pageSize === s ? 'bg-blue-600 text-white' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'}`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
+              <span className="text-sm text-gray-600">{total} 件中 {from}～{to} 件</span>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => handlePageChange(1)}

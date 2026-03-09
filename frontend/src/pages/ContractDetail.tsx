@@ -99,7 +99,7 @@ export default function ContractDetail() {
   if (!contract) return <div className="py-16 text-center text-gray-500">読み込み中...</div>;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="h-full overflow-y-auto max-w-2xl mx-auto space-y-6">
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
 import { RentalContract } from '../types';
@@ -24,6 +24,8 @@ function DaysBadge({ days }: { days: number }) {
   return <span className="text-xs text-gray-500 whitespace-nowrap">残{days}日</span>;
 }
 
+const ROW_HEIGHT = 57;
+
 export default function Contracts() {
   const { apiFetch } = useApi();
   const navigate = useNavigate();
@@ -31,6 +33,11 @@ export default function Contracts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [status, setStatus] = useState<'active' | 'returned' | 'cancelled'>('active');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+
+  const tableBodyAreaRef = useRef<HTMLDivElement>(null);
+  const isFirstPageSize = useRef(true);
 
   // クライアントサイドフィルター
   const [filterCustomer, setFilterCustomer] = useState('');
@@ -41,12 +48,10 @@ export default function Contracts() {
   const fetchContracts = async (s = status) => {
     setLoading(true);
     setError('');
-
     const timeoutId = setTimeout(() => {
       setError('接続がタイムアウトしました。ページを再読み込みしてください。');
       setLoading(false);
     }, 20000);
-
     try {
       const data = await apiFetch<RentalContract[]>(`/contracts?status=${s}`);
       setContracts(data);
@@ -59,19 +64,40 @@ export default function Contracts() {
   };
 
   useEffect(() => {
-    // タブ切り替え時にフィルターをリセット
     setFilterCustomer('');
     setFilterModel('');
     setFilterEndFrom('');
     setFilterEndTo('');
+    setPage(1);
     fetchContracts();
   }, [status]);
+
+  // テーブルボディ領域の高さから表示行数を自動計算
+  useEffect(() => {
+    const el = tableBodyAreaRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const h = entries[0].contentRect.height;
+      const newSize = Math.max(5, Math.floor((h - 44) / ROW_HEIGHT));
+      setPageSize(prev => (prev !== newSize ? newSize : prev));
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // pageSize 変更時にページをリセット（初回スキップ）
+  useEffect(() => {
+    if (isFirstPageSize.current) {
+      isFirstPageSize.current = false;
+      return;
+    }
+    setPage(1);
+  }, [pageSize]);
 
   const filtered = useMemo(() => {
     return contracts.filter((c) => {
       if (filterCustomer && !c.customer_name?.toLowerCase().includes(filterCustomer.toLowerCase())) return false;
       if (filterModel && !c.model_name?.toLowerCase().includes(filterModel.toLowerCase())) return false;
-      // ISOstring ("2026-03-31T00:00:00.000Z") 対策: 先頭10文字だけで比較
       const endDate = c.contract_end_date?.slice(0, 10) ?? '';
       if (filterEndFrom && endDate < filterEndFrom) return false;
       if (filterEndTo && endDate > filterEndTo) return false;
@@ -79,11 +105,28 @@ export default function Contracts() {
     });
   }, [contracts, filterCustomer, filterModel, filterEndFrom, filterEndTo]);
 
+  // フィルター変更時はページ1に戻す
+  useEffect(() => { setPage(1); }, [filterCustomer, filterModel, filterEndFrom, filterEndTo]);
+
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const from = filtered.length === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, filtered.length);
+  const pagedRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+
   const fmt = (n: number) => n?.toLocaleString('ja-JP') ?? '-';
   const fmtDate = (d?: string) => d ? format(new Date(d), 'yyyy/MM/dd', { locale: ja }) : '-';
 
+  const pageButtons = () => {
+    const pages: number[] = [];
+    const start = Math.max(1, page - 2);
+    const end = Math.min(totalPages, start + 4);
+    for (let i = start; i <= end; i++) pages.push(i);
+    return pages;
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col h-full gap-4">
+      {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">契約管理</h1>
         <div className="flex gap-2">
@@ -151,98 +194,123 @@ export default function Contracts() {
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      {/* テーブル */}
+      <div ref={tableBodyAreaRef} className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col flex-1 min-h-0">
         {loading ? (
           <div className="py-16 text-center text-gray-500">読み込み中...</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-base">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  {['ステータス', 'お客様名', '機種名', '管理番号', '契約開始日', '契約終了日', '残日数', '月額エンドU', '月額利益', '操作'].map(h => (
-                    <th key={h} className="px-4 py-3 text-center text-sm font-semibold text-gray-500 whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="py-12 text-center text-gray-500">
-                      {contracts.length > 0 ? 'フィルター条件に一致する契約がありません' : `${STATUS_LABELS[status]}の契約はありません`}
-                    </td>
-                  </tr>
-                ) : filtered.map((c) => (
-                  <tr key={c.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 align-middle text-center">
-                      <span className={`px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${STATUS_COLORS[c.status]}`}>
-                        {STATUS_LABELS[c.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 align-middle font-medium text-gray-800">{c.customer_name}</td>
-                    <td className="px-4 py-3 align-middle text-gray-700">
-                      {c.model_name} <span className="text-gray-400">{c.color}</span>
-                    </td>
-                    <td className="px-4 py-3 align-middle text-center font-mono text-gray-500 whitespace-nowrap">{c.management_no || '-'}</td>
-                    <td className="px-4 py-3 align-middle text-center text-gray-600 whitespace-nowrap">{fmtDate(c.contract_start_date)}</td>
-                    <td className="px-4 py-3 align-middle text-center whitespace-nowrap">
-                      <span className={
-                        c.days_until_end != null && c.days_until_end <= 30 && c.status === 'active'
-                          ? 'font-semibold text-orange-700'
-                          : 'text-gray-600'
-                      }>
-                        {fmtDate(c.contract_end_date)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 align-middle text-center">
-                      {c.status === 'active' && c.days_until_end != null
-                        ? <DaysBadge days={c.days_until_end} />
-                        : '-'}
-                    </td>
-                    <td className="px-4 py-3 align-middle text-right text-gray-700">
-                      {c.monthly_end_user_price ? `¥${fmt(c.monthly_end_user_price)}` : '-'}
-                    </td>
-                    <td className="px-4 py-3 align-middle text-right font-medium text-green-700">
-                      {c.monthly_end_user_price != null && c.monthly_wholesale_price != null
-                        ? `¥${fmt((c.monthly_end_user_price + (c.op_coverage_price || 0)) - c.monthly_wholesale_price)}`
-                        : '-'}
-                    </td>
-                    <td className="px-4 py-3 align-middle text-center">
-                      <div className="flex justify-center gap-1">
-                        <Link
-                          to={`/contracts/${c.id}`}
-                          className="px-2 py-1 text-xs bg-blue-50 border border-blue-200 text-blue-700 rounded hover:bg-blue-100"
-                        >
-                          詳細
-                        </Link>
-                        <Link
-                          to={`/devices/${c.device_id}`}
-                          className="px-2 py-1 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-100"
-                        >
-                          端末
-                        </Link>
-                        {c.status === 'active' && (
-                          <button
-                            onClick={() => navigate(`/contracts/${c.id}/return`)}
-                            className="px-2 py-1 text-xs bg-orange-500 text-white rounded hover:bg-orange-600"
-                          >
-                            返却
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+          <>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <div className="overflow-x-auto overflow-y-hidden h-full">
+                <table className="min-w-full text-base">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      {['ステータス', 'お客様名', '機種名', '管理番号', '契約開始日', '契約終了日', '残日数', '月額エンドU', '月額利益', '操作'].map(h => (
+                        <th key={h} className="px-4 py-3 text-center text-sm font-semibold text-gray-500 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {pagedRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="py-12 text-center text-gray-500">
+                          {contracts.length > 0 ? 'フィルター条件に一致する契約がありません' : `${STATUS_LABELS[status]}の契約はありません`}
+                        </td>
+                      </tr>
+                    ) : pagedRows.map((c) => (
+                      <tr key={c.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 align-middle text-center">
+                          <span className={`px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap ${STATUS_COLORS[c.status]}`}>
+                            {STATUS_LABELS[c.status]}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 align-middle font-medium text-gray-800">{c.customer_name}</td>
+                        <td className="px-4 py-3 align-middle text-gray-700">
+                          {c.model_name} <span className="text-gray-400">{c.color}</span>
+                        </td>
+                        <td className="px-4 py-3 align-middle text-center font-mono text-gray-500 whitespace-nowrap">{c.management_no || '-'}</td>
+                        <td className="px-4 py-3 align-middle text-center text-gray-600 whitespace-nowrap">{fmtDate(c.contract_start_date)}</td>
+                        <td className="px-4 py-3 align-middle text-center whitespace-nowrap">
+                          <span className={
+                            c.days_until_end != null && c.days_until_end <= 30 && c.status === 'active'
+                              ? 'font-semibold text-orange-700'
+                              : 'text-gray-600'
+                          }>
+                            {fmtDate(c.contract_end_date)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 align-middle text-center">
+                          {c.status === 'active' && c.days_until_end != null
+                            ? <DaysBadge days={c.days_until_end} />
+                            : '-'}
+                        </td>
+                        <td className="px-4 py-3 align-middle text-right text-gray-700">
+                          {c.monthly_end_user_price ? `¥${fmt(c.monthly_end_user_price)}` : '-'}
+                        </td>
+                        <td className="px-4 py-3 align-middle text-right font-medium text-green-700">
+                          {c.monthly_end_user_price != null && c.monthly_wholesale_price != null
+                            ? `¥${fmt((c.monthly_end_user_price + (c.op_coverage_price || 0)) - c.monthly_wholesale_price)}`
+                            : '-'}
+                        </td>
+                        <td className="px-4 py-3 align-middle text-center">
+                          <div className="flex justify-center gap-1">
+                            <Link
+                              to={`/contracts/${c.id}`}
+                              className="px-2 py-1 text-xs bg-blue-50 border border-blue-200 text-blue-700 rounded hover:bg-blue-100"
+                            >
+                              詳細
+                            </Link>
+                            <Link
+                              to={`/devices/${c.device_id}`}
+                              className="px-2 py-1 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-100"
+                            >
+                              端末
+                            </Link>
+                            {c.status === 'active' && (
+                              <button
+                                onClick={() => navigate(`/contracts/${c.id}/return`)}
+                                className="px-2 py-1 text-xs bg-orange-500 text-white rounded hover:bg-orange-600"
+                              >
+                                返却
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* ページネーション */}
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+              <span className="text-sm text-gray-600">
+                {filtered.length} 件中 {from}～{to} 件
+                {filtered.length !== contracts.length && (
+                  <span className="text-gray-400 ml-1">（全{contracts.length}件中）</span>
+                )}
+              </span>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setPage(1)} disabled={page === 1}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">«</button>
+                <button onClick={() => setPage(page - 1)} disabled={page === 1}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">‹</button>
+                {pageButtons().map(p => (
+                  <button key={p} onClick={() => setPage(p)}
+                    className={`px-3 py-1 text-xs border rounded ${p === page ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
+                    {p}
+                  </button>
                 ))}
-              </tbody>
-            </table>
-          </div>
+                <button onClick={() => setPage(page + 1)} disabled={page === totalPages || totalPages === 0}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">›</button>
+                <button onClick={() => setPage(totalPages)} disabled={page === totalPages || totalPages === 0}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">»</button>
+              </div>
+            </div>
+          </>
         )}
       </div>
-
-      {!loading && (
-        <p className="text-xs text-gray-400 text-right">
-          {filtered.length} 件表示{filtered.length !== contracts.length ? `（全${contracts.length}件中）` : '（最大500件）'}
-        </p>
-      )}
     </div>
   );
 }

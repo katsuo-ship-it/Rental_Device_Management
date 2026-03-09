@@ -60,7 +60,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="h-full overflow-y-auto max-w-2xl space-y-6">
       <h1 className="text-2xl font-bold text-gray-800">設定</h1>
 
       {/* CSVインポート */}

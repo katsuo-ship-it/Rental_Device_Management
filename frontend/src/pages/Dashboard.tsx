@@ -50,7 +50,7 @@ export default function Dashboard() {
   const upcomingCount = alerts.filter(a => a.days_until_end != null && a.days_until_end >= 0).length;
 
   return (
-    <div className="space-y-6">
+    <div className="h-full overflow-y-auto space-y-6">
       <h1 className="text-2xl font-bold text-gray-800">ダッシュボード</h1>
 
       {/* サマリーカード */}
