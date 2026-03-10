@@ -119,8 +119,9 @@ export default function DeviceDetail() {
   if (!device) return <div className="py-16 text-center text-gray-500">読み込み中...</div>;
 
   return (
-    <div className="h-full overflow-y-auto max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col">
+      {/* 固定ヘッダー */}
+      <div className="shrink-0 max-w-2xl mx-auto w-full flex items-center justify-between pb-4">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="text-gray-500 hover:text-gray-800">←</button>
           <h1 className="text-2xl font-bold text-gray-800">{device.model_name}</h1>
@@ -161,6 +162,10 @@ export default function DeviceDetail() {
           )}
         </div>
       </div>
+
+      {/* スクロール可能なコンテンツ */}
+      <div className="flex-1 overflow-y-auto">
+      <div className="max-w-2xl mx-auto space-y-6 pb-6">
 
       {/* 基本情報 */}
       <div className={section}>
@@ -342,6 +347,8 @@ export default function DeviceDetail() {
           </table>
         </div>
       )}
+      </div>
+      </div>
     </div>
   );
 }
