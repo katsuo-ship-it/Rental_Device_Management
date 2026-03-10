@@ -106,6 +106,16 @@ export default function DeviceForm() {
       <div className="flex items-center gap-3">
         <button onClick={() => navigate(-1)} className="text-gray-500 hover:text-gray-800">←</button>
         <h1 className="text-2xl font-bold text-gray-800">{isEdit ? '端末編集' : '端末登録'}</h1>
+        <div className="ml-auto flex gap-3">
+          <button onClick={() => navigate(-1)}
+            className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">
+            キャンセル
+          </button>
+          <button onClick={handleSubmit} disabled={submitting}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40">
+            {submitting ? '保存中...' : isEdit ? '更新する' : '登録する'}
+          </button>
+        </div>
       </div>
 
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
@@ -229,16 +239,6 @@ export default function DeviceForm() {
         </div>
       </div>
 
-      <div className="flex gap-3">
-        <button onClick={() => navigate(-1)}
-          className="flex-1 py-2.5 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50">
-          キャンセル
-        </button>
-        <button onClick={handleSubmit} disabled={submitting}
-          className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40">
-          {submitting ? '保存中...' : isEdit ? '更新する' : '登録する'}
-        </button>
-      </div>
     </div>
   );
 }
