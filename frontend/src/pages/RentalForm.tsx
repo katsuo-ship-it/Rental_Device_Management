@@ -4,7 +4,7 @@ import { useApi } from '../hooks/useApi';
 import { DataverseCustomer, Device } from '../types';
 
 export default function RentalForm() {
-  const { apiFetch, apiFetchWithDataverse } = useApi();
+  const { apiFetch } = useApi();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const deviceId = searchParams.get('deviceId');
@@ -47,7 +47,7 @@ export default function RentalForm() {
   const searchCustomers = async () => {
     if (!customerQuery) return;
     try {
-      const results = await apiFetchWithDataverse<DataverseCustomer[]>(
+      const results = await apiFetch<DataverseCustomer[]>(
         `/customers?q=${encodeURIComponent(customerQuery)}`
       );
       setCustomers(results);

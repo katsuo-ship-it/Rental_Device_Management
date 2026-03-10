@@ -5,7 +5,7 @@ import { DataverseCustomer, Device } from '../types';
 
 export default function SellForm() {
   const { id } = useParams<{ id: string }>();
-  const { apiFetch, apiFetchWithDataverse } = useApi();
+  const { apiFetch } = useApi();
   const navigate = useNavigate();
   const [device, setDevice] = useState<Device | null>(null);
   const [customerQuery, setCustomerQuery] = useState('');
@@ -31,7 +31,7 @@ export default function SellForm() {
   const searchCustomers = async () => {
     if (!customerQuery) return;
     try {
-      const results = await apiFetchWithDataverse<DataverseCustomer[]>(
+      const results = await apiFetch<DataverseCustomer[]>(
         `/customers?q=${encodeURIComponent(customerQuery)}`
       );
       setCustomers(results);
