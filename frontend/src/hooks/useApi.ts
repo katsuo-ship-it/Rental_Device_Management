@@ -9,18 +9,20 @@ export function useApi() {
   const { instance, accounts } = useMsal();
   const account = accounts[0];
 
-  async function getToken(): Promise<string> {
+  async function getToken(forceRefresh = false): Promise<string> {
     const result = await instance.acquireTokenSilent({
       ...apiRequest,
       account,
+      forceRefresh,
     }).catch(() => instance.acquireTokenPopup({ ...apiRequest, account }));
     return result.accessToken;
   }
 
-  async function getDataverseToken(): Promise<string> {
+  async function getDataverseToken(forceRefresh = false): Promise<string> {
     const result = await instance.acquireTokenSilent({
       ...dataverseRequest,
       account,
+      forceRefresh,
     }).catch(() => instance.acquireTokenPopup({ ...dataverseRequest, account }));
     return result.accessToken;
   }
@@ -38,6 +40,25 @@ export function useApi() {
         ...(options.headers || {}),
       },
     });
+
+    // 401の場合、トークンを強制更新してリトライ
+    if (res.status === 401) {
+      const freshToken = await getToken(true);
+      const retry = await fetch(`${API_BASE}/api${path}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${freshToken}`,
+          ...(options.headers || {}),
+        },
+      });
+      if (!retry.ok) {
+        const err = await retry.json().catch(() => ({ error: retry.statusText }));
+        throw new Error(err.error || 'APIエラー');
+      }
+      return retry.json();
+    }
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || 'APIエラー');
@@ -53,6 +74,23 @@ export function useApi() {
         'x-dataverse-token': dvToken,
       },
     });
+
+    // 401の場合、両トークンを強制更新してリトライ
+    if (res.status === 401) {
+      const [freshToken, freshDvToken] = await Promise.all([getToken(true), getDataverseToken(true)]);
+      const retry = await fetch(`${API_BASE}/api${path}`, {
+        headers: {
+          Authorization: `Bearer ${freshToken}`,
+          'x-dataverse-token': freshDvToken,
+        },
+      });
+      if (!retry.ok) {
+        const err = await retry.json().catch(() => ({ error: retry.statusText }));
+        throw new Error(err.error || 'APIエラー');
+      }
+      return retry.json();
+    }
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || 'APIエラー');
@@ -65,6 +103,24 @@ export function useApi() {
     const res = await fetch(`${API_BASE}/api${path}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
+
+    // 401の場合、トークンを強制更新してリトライ
+    if (res.status === 401) {
+      const freshToken = await getToken(true);
+      const retry = await fetch(`${API_BASE}/api${path}`, {
+        headers: { Authorization: `Bearer ${freshToken}` },
+      });
+      if (!retry.ok) throw new Error('ダウンロードに失敗しました');
+      const blob = await retry.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
     if (!res.ok) throw new Error('ダウンロードに失敗しました');
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
@@ -85,6 +141,25 @@ export function useApi() {
       },
       body: file,
     });
+
+    // 401の場合、トークンを強制更新してリトライ
+    if (res.status === 401) {
+      const freshToken = await getToken(true);
+      const retry = await fetch(`${API_BASE}/api${path}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${freshToken}`,
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        },
+        body: file,
+      });
+      if (!retry.ok) {
+        const err = await retry.json().catch(() => ({ error: retry.statusText }));
+        throw new Error(err.error || 'アップロードエラー');
+      }
+      return retry.json();
+    }
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || 'アップロードエラー');
